@@ -3,8 +3,9 @@ module Main where
 data Piece = King | Queen | Bishop | Knight | Rook | Pawn deriving (Enum)
 data SquareState = Empty | Piece deriving (Enum)
 
+-- TODO: Make the show for pieces and the board be unicode
 instance Show SquareState where 
-  show Empty = "-"
+  show Empty = "#"
 
 instance Show Piece where
   show King = "K"
@@ -14,20 +15,30 @@ instance Show Piece where
   show Rook = "R"
   show Pawn = "P"
 
+-- define board types
 type Square = (Int, Int, SquareState) 
+type Row = [Square]
 type Board = [[Square]]
 
-makeRow :: Int -> [(Int, Int, SquareState)]
+-- build row method
+makeRow :: Int -> Row
 makeRow x = [(1, x, Empty), (2, x, Empty), (3, x, Empty), (4, x, Empty), (5, x, Empty), (6, x, Empty), (7, x, Empty), (8, x, Empty)]
 
+-- append a new row to the board
+appendRow :: Row -> Board -> Board
+appendRow row board = row : board
 
--- create chess board function
--- makeBoard :: Int -> Board -> Board
--- makeBoard 0 board = board
--- makeBoard count board = makeBoard (count-1) ((makeRow count) ++ board)
+-- build entire chess board
+buildBoardHelper :: Int -> Board -> Board
+buildBoardHelper 0 board = board
+buildBoardHelper y board = buildBoardHelper (y-1) (appendRow (makeRow y) board)
+
+buildBoard :: Board
+buildBoard = buildBoardHelper 8 []
+
 
 -- Print Row function
-printRow :: Int -> [Square] -> IO ()
+printRow :: Int -> Row -> IO ()
 printRow 0 row = do putStrLn (show (row !! 0))
 printRow i row = 
   do 
@@ -35,24 +46,12 @@ printRow i row =
     printRow (i-1) row
 
 -- Print Matrix function
-printMatrixHelper :: Board -> Int -> IO () 
-printMatrixHelper matrix 0 = do putStrLn ""
-printMatrixHelper matrix i = 
-  do 
-    printRow i (matrix !! i)
-    printMatrixHelper matrix (i-1)
 
-printMatrix :: Board -> IO ()
-printMatrix matrix = printMatrixHelper matrix 7
 
 -- main
 main = do
-  -- let board = makeBoard 9 []
-  -- printMatrix board
-  let board = [makeRow 9]
-  let row = makeRow 9
-  print (show (row ++ board))
-
+  let board = buildBoard
+  putStrLn (show board)
 
 
 
