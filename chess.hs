@@ -1,28 +1,49 @@
 module Main where
 
-data Piece = King | Queen | Bishop | Knight | Rook | Pawn deriving (Enum)
-data SquareState = Empty | Piece deriving (Enum)
+data Piece = BKing | BQueen | BBishop | BKnight | BRook | BPawn |
+             WKing | WQueen | WBishop | WKnight | WRook | WPawn deriving (Enum)
+data SquareState = WEmpty | BEmpty | Piece deriving (Enum)
 
--- TODO: Make the show for pieces and the board be unicode
 instance Show SquareState where 
-  show Empty = "#"
+  show WEmpty = " "-- = "\9633"
+  show BEmpty = "#"-- = "\9633"
 
 instance Show Piece where
-  show King = "K"
-  show Queen = "Q"
-  show Bishop = "B"
-  show Knight = "Kn"
-  show Rook = "R"
-  show Pawn = "P"
+  show BKing   = "a" -- = "\9818" commenting these out because the unicode does not work on nix for some reason
+  show BQueen  = "b" -- = "\9819"
+  show BBishop = "c" -- = "\9821"
+  show BKnight = "d" -- = "\9822"
+  show BRook   = "e" -- = "\8920"
+  show BPawn   = "f" -- = "\9823"
+  show WKing   = "A" -- = "\9812"
+  show WQueen  = "B" -- = "\9813"
+  show WBishop = "C" -- = "\9815"
+  show WKnight = "D" -- = "\9816"
+  show WRook   = "E" -- = "\9814"
+  show WPawn   = "F" -- = "\9817"
 
 -- define board types
+getLast :: (a, b, c) -> c
+getLast (_, _, x) = x
 type Square = (Int, Int, SquareState) 
+
 type Row = [Square]
 type Board = [[Square]]
 
+class Commonoid a where 
+  duplicate :: a %1 -> (a,a)
+  drop :: a %1 -> ()
+
+-- create new square tuple
+makeSquare x y = (x, y, (getColor (y + x)))
+
+-- decides what color square should be based on the sum of the coordinates
+getColor :: Int -> SquareState
+getColor x = if (x `mod` 2) == 0 then BEmpty else WEmpty
+
 -- build row method
 makeRow :: Int -> Row
-makeRow x = [(1, x, Empty), (2, x, Empty), (3, x, Empty), (4, x, Empty), (5, x, Empty), (6, x, Empty), (7, x, Empty), (8, x, Empty)]
+makeRow x = [makeSquare 1 x, makeSquare 2 x, makeSquare 3 x, makeSquare 4 x, makeSquare 5 x, makeSquare 6 x, makeSquare 7 x, makeSquare 8 x]
 
 -- append a new row to the board
 appendRow :: Row -> Board -> Board
@@ -36,31 +57,26 @@ buildBoardHelper y board = buildBoardHelper (y-1) (appendRow (makeRow y) board)
 buildBoard :: Board
 buildBoard = buildBoardHelper 8 []
 
+-- print single row of squares
+printRow :: Row -> IO ()
+printRow row = putStrLn (show (map getLast row))
 
--- Print Row function
-printRow :: Int -> Row -> IO ()
-printRow 0 row = do putStrLn (show (row !! 0))
-printRow i row = 
-  do 
-    putStr (show (row !! i))
-    printRow (i-1) row
+-- print chess board
+printMatrix :: Int -> Board -> IO ()
+printMatrix 0 board = printRow (board !! 0)
+printMatrix i board = do 
+  printRow (board !! i)
+  printMatrix (i-1) board
 
--- Print Matrix function
-
+placePiece board piece x y = do 
+  let newSquare = (x, y, piece) :: Square
+  let newBoard
+  -- TODO: doesn't this require mutation? 
 
 -- main
+main :: IO ()
 main = do
   let board = buildBoard
-  putStrLn (show board)
-
-
-
-
-
-
-
-
-
-
+  printMatrix 7 board
 
 
