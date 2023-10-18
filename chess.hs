@@ -5,22 +5,22 @@ data Piece = BKing | BQueen | BBishop | BKnight | BRook | BPawn |
 data SquareState = WEmpty | BEmpty | Piece deriving (Enum)
 
 instance Show SquareState where 
-  show WEmpty = " "-- = "\9633"
-  show BEmpty = "#"-- = "\9633"
+  show WEmpty = "\9633"
+  show BEmpty = "\9633"
 
 instance Show Piece where
-  show BKing   = "a" -- = "\9818" commenting these out because the unicode does not work on nix for some reason
-  show BQueen  = "b" -- = "\9819"
-  show BBishop = "c" -- = "\9821"
-  show BKnight = "d" -- = "\9822"
-  show BRook   = "e" -- = "\8920"
-  show BPawn   = "f" -- = "\9823"
-  show WKing   = "A" -- = "\9812"
-  show WQueen  = "B" -- = "\9813"
-  show WBishop = "C" -- = "\9815"
-  show WKnight = "D" -- = "\9816"
-  show WRook   = "E" -- = "\9814"
-  show WPawn   = "F" -- = "\9817"
+  show BKing   = "\9818"
+  show BQueen  = "\9819"
+  show BBishop = "\9821"
+  show BKnight = "\9822"
+  show BRook   = "\8920"
+  show BPawn   = "\9823"
+  show WKing   = "\9812"
+  show WQueen  = "\9813"
+  show WBishop = "\9815"
+  show WKnight = "\9816"
+  show WRook   = "\9814"
+  show WPawn   = "\9817"
 
 -- define board types
 getLast :: (a, b, c) -> c
@@ -30,9 +30,9 @@ type Square = (Int, Int, SquareState)
 type Row = [Square]
 type Board = [[Square]]
 
-class Commonoid a where 
-  duplicate :: a %1 -> (a,a)
-  drop :: a %1 -> ()
+--class Commonoid a where 
+--  duplicate :: a %1 -> (a,a)
+--  drop :: a %1 -> ()
 
 -- create new square tuple
 makeSquare x y = (x, y, (getColor (y + x)))
@@ -68,15 +68,17 @@ printMatrix i board = do
   printRow (board !! i)
   printMatrix (i-1) board
 
-placePiece board piece x y = do 
-  let newSquare = (x, y, piece) :: Square
-  let newBoard
-  -- TODO: doesn't this require mutation? 
+--placePiece board piece x y = do 
+--  let newSquare = (x, y, piece) :: Square
+--  let newBoard
+--  -- TODO: doesn't this require mutation? 
 
 -- main
 main :: IO ()
 main = do
-  let board = buildBoard
-  printMatrix 7 board
+  -- let board = buildBoard
+  -- printMatrix 7 board
+  let row = makeRow 7
+  putStrLn (show (map getLast row))
 
 
