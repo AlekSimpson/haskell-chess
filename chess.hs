@@ -85,7 +85,9 @@ printMatrix i board = do
 -- main
 main :: IO ()
 main = do
-  let board = buildBoard
-  printMatrix 7 board
+  -- let board = buildBoard
+  -- printMatrix 7 board
+  let row = makeRow 7
+  putStrLn (show (map getLast row))
 
 
