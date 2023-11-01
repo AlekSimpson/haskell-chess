@@ -79,7 +79,6 @@ prototypeBoard = listArray (0, 7) [(i, (makeRow i)) | i <- [0..7]]
 --  printRow (board !! i) 7 
 --  printMatrix (i-1) board
 
--- main
 main :: IO ()
 main = do
   -- let board = buildBoard
