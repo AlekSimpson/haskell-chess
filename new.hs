@@ -33,21 +33,23 @@ instance Eq Square where
 -- FUNCTIONS
 nullPiece = Piece Null White
 
-printSquare sq = putStrLn (show sq)
+printSquare :: Square -> IO ()
+printSquare sq = putStr (show sq)
 
-printRow row 0 = do 
-  printSquare (row !! 0)
+printRowHelper :: [Square] -> Int -> IO ()
+printRowHelper arr 0 = do 
+  printSquare (arr !! 0)
   putStrLn ""
-printRow row i = do
-  printSquare (row !! i)
-  printRow row (i-1)
+printRowHelper arr i = do 
+  printSquare (arr !! i)
+  printRowHelper arr (i-1)
+printRow arr = printRowHelper arr 7
 
--- print chess board
-printBoardHelper 0 board = printRow (board !! 0) 7 
-printBoardHelper i board = do 
-  printRow (board !! i) 7 
-  printBoardHelper (i-1) board
-printBoard board = printBoardHelper 7 board
+printBoard :: [[Square]] -> Int -> IO ()
+printBoard board 0 = printRow (board !! 0)
+printBoard board i = do 
+  printRow (board !! 1)
+  printBoard board (i-1)
 
 {-
 Function: mutateRow
@@ -86,7 +88,7 @@ x: A positive integer value
 returns: the color Black or White
 -}
 getColor :: Int -> Color
-getColor x = if (x `mod` 2) == 0 then Black else White
+getColor x = if (x `mod` 2) == 0 then White else Black
 
 {-
 Function: makeBoard
@@ -103,5 +105,6 @@ makeBoard = makeBoardHelper [] 1
 main = do 
   let board = makeBoard
 
-  printBoard board
+  -- printRowHelper (board !! 2) 7
+  printBoard board 7
   print "done"
