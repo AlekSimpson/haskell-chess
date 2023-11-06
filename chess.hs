@@ -52,12 +52,12 @@ prototypeBoard = listArray (0, 7) [(i, (makeRow i)) | i <- [0..7]]
 --appendRow row board = row : board
 --
 ---- build entire chess board
---buildBoardHelper :: Int -> Board -> Board
---buildBoardHelper 0 board = board
---buildBoardHelper y board = buildBoardHelper (y-1) (appendRow (makeRow y) board)
---
---buildBoard :: Board
---buildBoard = buildBoardHelper 8 []
+buildBoardHelper :: Int -> Board -> Board
+buildBoardHelper 0 board = board
+buildBoardHelper y board = buildBoardHelper (y-1) (appendRow (makeRow y) board)
+
+buildBoard :: Board
+buildBoard = buildBoardHelper 8 []
 --
 ---- print single square
 --printSquare :: Square -> IO ()
