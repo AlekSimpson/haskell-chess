@@ -46,14 +46,12 @@ printRowHelper arr i = do
   printRowHelper arr (i-1)
 printRow arr = printRowHelper arr 7
 
-printBoard :: [[Square]] -> Int -> IO ()
-printBoard board 0 = printRow (board !! 0)
-printBoard board i = do 
+printBoardHelper :: [[Square]] -> Int -> IO ()
+printBoardHelper board 0 = printRow (board !! 0)
+printBoardHelper board i = do 
   printRow (board !! i)
-  printBoard board (i-1)
-
-mutateRowHelper tp ap new = if (tp == ap) then new else ap
-mutateRow target newSquare arr = map (\x -> mutateRowHelper target x newSquare) arr
+  printBoardHelper board (i-1)
+printBoard board = printBoardHelper board 7
 
 makeSquare x y = Square x y (getColor (y + x)) nullPiece Empty
 
@@ -65,10 +63,37 @@ getColor x = if (x `mod` 2) == 0 then White else Black
 makeBoardHelper board 0 = board
 makeBoardHelper board y = makeBoardHelper ((makeRow y) : board) (y - 1)
 makeBoard = makeBoardHelper [] 8 
+
+-- MUTATION FUNCTIONS
+mutateRowHelper :: Square -> Square -> Square -> Square
+mutateRowHelper tp ap new = if (tp == ap) then new else ap
+mutateRow :: Square -> Square -> [Square] -> [Square]
+mutateRow target newSquare row = map (\x -> mutateRowHelper target x newSquare) row
+
+mutateBoard :: Square -> Int -> Int -> Square -> [[Square]] -> [[Square]]
+mutateBoard tP tY 0 newSquare board = board
+-- issue is that the function does not recurse when it hits the mutated row
+mutateBoard tP tY currY newSquare board = if tY == currY then (mutateRow tP newSquare (board !! tY)) else (mutateBoard tP tY (currY - 1) newSquare board)
+
 --END FUNCTIONS
 
 main = do 
   let board = makeBoard
+  let targetPoint = makeSquare 1 1 
+  let new = Square 1 1 (getColor 2) (Piece Rook Black) Occupied
+  let mutatedBoard = mutateBoard targetPoint 1 8 new board
 
-  printBoard board 7
+  printBoard board
   print "done"
+
+
+
+
+
+
+
+
+
+
+
+
