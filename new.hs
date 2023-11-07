@@ -10,21 +10,21 @@ data Piece = Piece PieceName Color
 data Square = Square Int Int Color Piece SquareState
 
 instance Show Square where 
-  show (Square x y _ _ _) = "(" ++ (show x) ++ ", " ++ (show y) ++ ")  "
-  --show (Square _ _ Black (Piece Null White) Empty)  = "\9632 " 
-  --show (Square _ _ White (Piece Null White) Empty)  = "\9633 " 
-  --show (Square _ _ _ (Piece King Black) Occupied)   = "\9818 " 
-  --show (Square _ _ _ (Piece Queen Black) Occupied)  = "\9819 "
-  --show (Square _ _ _ (Piece Bishop Black) Occupied) = "\9821 " 
-  --show (Square _ _ _ (Piece Knight Black) Occupied) = "\9822 " 
-  --show (Square _ _ _ (Piece Rook Black) Occupied)   = "\8920 " 
-  --show (Square _ _ _ (Piece Pawn Black) Occupied)   = "\9823 " 
-  --show (Square _ _ _ (Piece King White) Occupied)   = "\9818 " 
-  --show (Square _ _ _ (Piece Queen White) Occupied)  = "\9819 "
-  --show (Square _ _ _ (Piece Bishop White) Occupied) = "\9821 " 
-  --show (Square _ _ _ (Piece Knight White) Occupied) = "\9822 " 
-  --show (Square _ _ _ (Piece Rook White) Occupied)   = "\8920 " 
-  --show (Square _ _ _ (Piece Pawn White) Occupied)   = "\9823 "
+  -- show (Square x y _ _ _) = "(" ++ (show x) ++ ", " ++ (show y) ++ ")  "
+  show (Square _ _ Black (Piece Null White) Empty)  = "\9632 " 
+  show (Square _ _ White (Piece Null White) Empty)  = "\9633 " 
+  show (Square _ _ _ (Piece King Black) Occupied)   = "\9818 " 
+  show (Square _ _ _ (Piece Queen Black) Occupied)  = "\9819 "
+  show (Square _ _ _ (Piece Bishop Black) Occupied) = "\9821 " 
+  show (Square _ _ _ (Piece Knight Black) Occupied) = "\9822 " 
+  show (Square _ _ _ (Piece Rook Black) Occupied)   = "\8920 " 
+  show (Square _ _ _ (Piece Pawn Black) Occupied)   = "\9823 " 
+  show (Square _ _ _ (Piece King White) Occupied)   = "\9818 " 
+  show (Square _ _ _ (Piece Queen White) Occupied)  = "\9819 "
+  show (Square _ _ _ (Piece Bishop White) Occupied) = "\9821 " 
+  show (Square _ _ _ (Piece Knight White) Occupied) = "\9822 " 
+  show (Square _ _ _ (Piece Rook White) Occupied)   = "\8920 " 
+  show (Square _ _ _ (Piece Pawn White) Occupied)   = "\9823 "
 
 instance Eq Square where 
   (==) (Square xOne yOne _ _ _) (Square xTwo yTwo _ _ _) = (xOne == xTwo) && (yOne == yTwo)
@@ -49,7 +49,7 @@ printRow arr = printRowHelper arr 7
 printBoard :: [[Square]] -> Int -> IO ()
 printBoard board 0 = printRow (board !! 0)
 printBoard board i = do 
-  printRow (board !! 1)
+  printRow (board !! i)
   printBoard board (i-1)
 
 mutateRowHelper tp ap new = if (tp == ap) then new else ap
