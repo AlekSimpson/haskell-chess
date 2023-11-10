@@ -9,6 +9,11 @@ data SquareState = Occupied | Empty
 data Piece = Piece PieceName Color
 data Square = Square Int Int Color Piece SquareState
 
+squareGetY :: Square -> Int
+squareGetY (Square _ y _ _ _) = y
+squareGetX :: Square -> Int
+squareGetX (Square x _ _ _ _) = x
+
 instance Show Square where 
   -- show (Square x y _ _ _) = "(" ++ (show x) ++ ", " ++ (show y) ++ ")  "
   show (Square _ _ Black (Piece Null White) Empty)  = "\9632 " 
@@ -70,20 +75,20 @@ mutateRowHelper tp ap new = if (tp == ap) then new else ap
 mutateRow :: Square -> Square -> [Square] -> [Square]
 mutateRow target newSquare row = map (\x -> mutateRowHelper target x newSquare) row
 
-mutateBoard :: Square -> Int -> Int -> Square -> [[Square]] -> [[Square]]
-mutateBoard tP tY 0 newSquare board = board
--- issue is that the function does not recurse when it hits the mutated row
-mutateBoard tP tY currY newSquare board = if tY == currY then (mutateRow tP newSquare (board !! tY)) else (mutateBoard tP tY (currY - 1) newSquare board)
-
+mutateBoarHelper target tY row newSquare = if (tY == (squareGetY (row !! 0))) then (mutateRow target newSquare row) else actualRow 
+mutateBoard tY targetSquare newSquare board = map (\x -> mutateBoardHelper targetSquare tY x newSquare) board
 --END FUNCTIONS
 
 main = do 
   let board = makeBoard
   let targetPoint = makeSquare 1 1 
   let new = Square 1 1 (getColor 2) (Piece Rook Black) Occupied
-  let mutatedBoard = mutateBoard targetPoint 1 8 new board
+  -- let mutatedBoard = mutateBoard targetPoint 1 7 new board []
+  let mutateBoard = mutateBoard 1 targetPoint new board
 
-  printBoard board
+  putStrLn (show (length mutatedBoard))
+
+  -- printBoard mutatedBoard
   print "done"
 
 
