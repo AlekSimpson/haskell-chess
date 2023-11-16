@@ -79,35 +79,43 @@ mutateRowHelper tp ap new = if (tp == ap) then new else ap
 mutateRow :: Square -> Square -> [Square] -> [Square]
 mutateRow target newSquare row = map (\x -> mutateRowHelper target x newSquare) row
 
-mutateBoard :: Int -> Square -> Square -> [[Square]] -> [[Square]]
-mutateBoardHelper target tY row newSquare = if (tY == (squareGetY (row !! 0))) then (mutateRow target newSquare row) else row
-mutateBoard tY targetSquare newSquare board = map (\x -> mutateBoardHelper targetSquare tY x newSquare) board
+mutateBoard :: Square -> Square -> [[Square]] -> [[Square]]
+mutateBoardHelper target row newSquare = if ((squareGetY target) == (squareGetY (row !! 0))) then (mutateRow target newSquare row) else row
+mutateBoard targetSquare newSquare board = map (\currSquare -> mutateBoardHelper targetSquare currSquare newSquare) board
 --END FUNCTIONS
 
+-- take a board and initialize it with a starting position
+placePawns :: [[Square]] -> [Square] -> Int -> Int -> Color -> [[Square]]
+placePawns board targets 8 y color = board
+placePawns board targets x y color = 
+  placePawns (mutateBoard (targets !! 0) (makeSquarePiece x y (Piece Pawn color)) board) (drop 1 targets) (x + 1) y color
+
 main = do 
-  let whitePieces = makePieces White
-  let blackPiece = makePieces Black
-  let board = makeBoard
-  let targetPointOne = makeSquare 1 1 
-  let targetPointTwo = makeSquare 2 1 
-  let targetPointThree = makeSquare 3 1 
-  let targetPointFour = makeSquare 4 1
+  let whitePieces      = makePieces White
+  let blackPiece       = makePieces Black
+  -- let board            = makeBoard
+  --let targetPointOne   = makeSquare 1 1 
+  --let targetPointTwo   = makeSquare 2 1 
+  --let targetPointThree = makeSquare 3 1 
+  --let targetPointFour  = makeSquare 4 1
 
-  -- let rook = Square 1 1 (getColor 2) (Piece Rook Black) Occupied
-  let bRook = makeSquarePiece 1 1 (blackPiece !! 1)
-  -- let knight = Square 2 1 (getColor 3) (Piece Knight Black) Occupied
-  let bKnight = makeSquarePiece 2 1 (blackPiece !! 2)
-  -- let bishop = Square 3 1 (getColor 4) (Piece Bishop Black) Occupied
-  let bBishop = makeSquarePiece 3 1 (blackPiece !! 3)
-  -- let queen = Square 4 1 (getColor 5) (Piece Queen Black) Occupied
-  let bQueen = makeSquarePiece 4 1 (blackPiece !! 4)
+  --let bRook   = makeSquarePiece 1 1 (blackPiece !! 1)
+  --let bKnight = makeSquarePiece 2 1 (blackPiece !! 2)
+  --let bBishop = makeSquarePiece 3 1 (blackPiece !! 3)
+  --let bQueen  = makeSquarePiece 4 1 (blackPiece !! 4)
 
-  let one = mutateBoard 1 targetPointOne rook board
-  let two = mutateBoard 1 targetPointTwo knight one
-  let three = mutateBoard 1 targetPointThree bishop two
-  let four = mutateBoard 1 targetPointFour queen three
+  --let one   = mutateBoard targetPointOne bRook board
+  --let two   = mutateBoard targetPointTwo bKnight one
+  --let three = mutateBoard targetPointThree bBishop two
+  --let four  = mutateBoard targetPointFour bQueen three
+  let targets = [(makeSquare 0 7), (makeSquare 1 7), (makeSquare 2 7), (makeSquare 3 7), (makeSquare 4 7), (makeSquare 5 7), (makeSquare 6 7), (makeSquare 7 7)]
+
+  putStrLn (show (length targets))
+  let test = drop 1 targets
+  putStrLn (show (length test)) 
+  -- let board = placePawns makeBoard targets 0 7 Black
   
-  printBoard four
+  -- printBoard board
   print "done"
 
 
