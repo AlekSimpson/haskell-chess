@@ -62,7 +62,7 @@ printBoard board = printBoardHelper board 7
 makeSquare x y = Square x y (getColor (y + x)) nullPiece Empty
 makeSquarePiece x y piece = Square x y (getColor (y + x)) piece Occupied
 
-makeRow y = [makeSquare 1 y, makeSquare 2 y, makeSquare 3 y, makeSquare 4 y, makeSquare 5 y, makeSquare 6 y, makeSquare 7 y, makeSquare 8 y] 
+makeRow y = [makeSquare x y | x <- [1..8]]
 
 getColor :: Int -> Color
 getColor x = if (x `mod` 2) == 0 then White else Black
@@ -85,37 +85,24 @@ mutateBoard targetSquare newSquare board = map (\currSquare -> mutateBoardHelper
 --END FUNCTIONS
 
 -- take a board and initialize it with a starting position
-placePawns :: [[Square]] -> [Square] -> Int -> Int -> Color -> [[Square]]
-placePawns board targets 8 y color = board
-placePawns board targets x y color = 
-  placePawns (mutateBoard (targets !! 0) (makeSquarePiece x y (Piece Pawn color)) board) (drop 1 targets) (x + 1) y color
+placePawnsHelper :: [[Square]] -> [Square] -> Int -> Int -> Color -> [[Square]]
+placePawnsHelper board targets 8 y color = board
+placePawnsHelper board targets x y color = 
+  placePawnsHelper (mutateBoard (targets !! 0) (makeSquarePiece x y (Piece Pawn color)) board) (drop 1 targets) (x + 1) y color
+
+-- makeTargets :: Int -> Int -> (Int -> Int) -> (Int -> Int) -> [Square]
+makeTargets 8 y xDelta yDelta array = array
+makeTargets x 8 xDelta yDelta array = array
+makeTargets x y xDelta yDelta array = makeTargets (xDelta x) (yDelta y) xDelta yDelta ((makeSquare x y) : array)
 
 main = do 
-  let whitePieces      = makePieces White
-  let blackPiece       = makePieces Black
-  -- let board            = makeBoard
-  --let targetPointOne   = makeSquare 1 1 
-  --let targetPointTwo   = makeSquare 2 1 
-  --let targetPointThree = makeSquare 3 1 
-  --let targetPointFour  = makeSquare 4 1
+  -- let whitePieces = makePieces White
+  -- let blackPieces = makePieces Black
 
-  --let bRook   = makeSquarePiece 1 1 (blackPiece !! 1)
-  --let bKnight = makeSquarePiece 2 1 (blackPiece !! 2)
-  --let bBishop = makeSquarePiece 3 1 (blackPiece !! 3)
-  --let bQueen  = makeSquarePiece 4 1 (blackPiece !! 4)
+  let board = placePawnsHelper makeBoard (makeRow 7) 0 7 Black
+  let next  = placePawnsHelper board (makeRow 2) 0 2 White
 
-  --let one   = mutateBoard targetPointOne bRook board
-  --let two   = mutateBoard targetPointTwo bKnight one
-  --let three = mutateBoard targetPointThree bBishop two
-  --let four  = mutateBoard targetPointFour bQueen three
-  let targets = [(makeSquare 0 7), (makeSquare 1 7), (makeSquare 2 7), (makeSquare 3 7), (makeSquare 4 7), (makeSquare 5 7), (makeSquare 6 7), (makeSquare 7 7)]
-
-  putStrLn (show (length targets))
-  let test = drop 1 targets
-  putStrLn (show (length test)) 
-  -- let board = placePawns makeBoard targets 0 7 Black
-  
-  -- printBoard board
+  printBoard next
   print "done"
 
 
