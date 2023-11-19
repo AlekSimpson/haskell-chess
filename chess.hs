@@ -1,91 +1,118 @@
 module Main where
-import Data.Array
+-- import Text.Printf
 
-data Piece = BKing | BQueen | BBishop | BKnight | BRook | BPawn |
-             WKing | WQueen | WBishop | WKnight | WRook | WPawn deriving (Enum)
-data SquareState = WEmpty | BEmpty | Piece deriving (Enum)
+-- DATA TYPE SECTION
+data Color = Black | White deriving Show
+data PieceName = King | Queen | Bishop | Knight | Rook | Pawn | Null deriving (Show)
+data SquareState = Occupied | Empty
 
-instance Show SquareState where 
-  show WEmpty = "\9633 "
-  show BEmpty = "\9632 "
+data Piece = Piece PieceName Color
+data Square = Square Int Int Color Piece SquareState
 
-instance Show Piece where
-  show BKing   = "\9818"
-  show BQueen  = "\9819"
-  show BBishop = "\9821"
-  show BKnight = "\9822"
-  show BRook   = "\8920"
-  show BPawn   = "\9823"
-  show WKing   = "\9812"
-  show WQueen  = "\9813"
-  show WBishop = "\9815"
-  show WKnight = "\9816"
-  show WRook   = "\9814"
-  show WPawn   = "\9817"
+squareGetY :: Square -> Int
+squareGetY (Square _ y _ _ _) = y
+squareGetX :: Square -> Int
+squareGetX (Square x _ _ _ _) = x
 
--- define board types
-getLast :: (a, b, c) -> c
-getLast (_, _, x) = x
-type Square = (Int, Int, SquareState) 
+instance Show Square where 
+  -- show (Square x y _ _ _) = "(" ++ (show x) ++ ", " ++ (show y) ++ ")  "
+  show (Square _ _ Black (Piece Null White) Empty)  = "\9632 " 
+  show (Square _ _ White (Piece Null White) Empty)  = "\9633 " 
+  show (Square _ _ _ (Piece King White) Occupied)   = "\9818 " 
+  show (Square _ _ _ (Piece Queen White) Occupied)  = "\9819 "
+  show (Square _ _ _ (Piece Bishop White) Occupied) = "\9821 " 
+  show (Square _ _ _ (Piece Knight White) Occupied) = "\9822 " 
+  show (Square _ _ _ (Piece Rook White) Occupied)   = "\9820 " 
+  show (Square _ _ _ (Piece Pawn White) Occupied)   = "\9823 " 
 
--- type Row = [Square]
-type Row = Array Square Square
-type Board = [[Square]]
+  show (Square _ _ _ (Piece King Black) Occupied)   = "\9812 " 
+  show (Square _ _ _ (Piece Queen Black) Occupied)  = "\9813 "
+  show (Square _ _ _ (Piece Bishop Black) Occupied) = "\9815 " 
+  show (Square _ _ _ (Piece Knight Black) Occupied) = "\9816 " 
+  show (Square _ _ _ (Piece Rook Black) Occupied)   = "\9814 " 
+  show (Square _ _ _ (Piece Pawn Black) Occupied)   = "\9817 "
 
--- create new square tuple
-makeSquare x y = (x, y, (getColor (y + x)))
+instance Eq Square where 
+  (==) (Square xOne yOne _ _ _) (Square xTwo yTwo _ _ _) = (xOne == xTwo) && (yOne == yTwo)
+  (/=) (Square xOne yOne _ _ _) (Square xTwo yTwo _ _ _) = (xOne /= xTwo) || (yOne /= yTwo)
+-- END DATA TYPE SECTION
 
--- decides what color square should be based on the sum of the coordinates
-getColor :: Int -> SquareState
-getColor x = if (x `mod` 2) == 0 then BEmpty else WEmpty
+-- FUNCTIONS
+nullPiece = Piece Null White
 
--- build row method
-makeRow :: Int -> Row 
-makeRow x = listArray (0, 7) [makeSquare 1 x, makeSquare 2 x, makeSquare 3 x, makeSquare 4 x, makeSquare 5 x, makeSquare 6 x, makeSquare 7 x, makeSquare 8 x]
+printSquare :: Square -> IO ()
+printSquare sq = putStr (show sq)
 
--- prototypeBoard :: Int -> Array -> Array
--- prototypeBoard 0 board = board 
-prototypeBoard = listArray (0, 7) [(i, (makeRow i)) | i <- [0..7]]
+printRowHelper :: [Square] -> Int -> IO ()
+printRowHelper arr 0 = do 
+  printSquare (arr !! 0)
+  putStrLn ""
+printRowHelper arr i = do 
+  printSquare (arr !! i)
+  printRowHelper arr (i-1)
+printRow arr = printRowHelper arr 7
 
--- append a new row to the board
---appendRow :: Row -> Board -> Board
---appendRow row board = row : board
---
----- build entire chess board
-buildBoardHelper :: Int -> Board -> Board
-buildBoardHelper 0 board = board
-buildBoardHelper y board = buildBoardHelper (y-1) (appendRow (makeRow y) board)
+printBoardHelper :: [[Square]] -> Int -> IO ()
+printBoardHelper board 0 = printRow (board !! 0)
+printBoardHelper board i = do 
+  printRow (board !! i)
+  printBoardHelper board (i-1)
+printBoard board = printBoardHelper board 7
 
-buildBoard :: Board
-buildBoard = buildBoardHelper 8 []
---
----- print single square
---printSquare :: Square -> IO ()
---printSquare square = putStr (show (getLast square))
---
----- print single row of squares
---printRow :: Row -> Int -> IO ()
---printRow row 0 = do 
---  printSquare (row !! 0)
---  putStrLn ""
---printRow row i = do
---  printSquare (row !! i)
---  printRow row (i-1)
---
----- print chess board
---printMatrix :: Int -> Board -> IO ()
---printMatrix 0 board = printRow (board !! 0) 7 
---printMatrix i board = do 
---  printRow (board !! i) 7 
---  printMatrix (i-1) board
+makeSquare x y = Square x y (getColor (y + x)) nullPiece Empty
+makeSquarePiece x y piece = Square x y (getColor (y + x)) piece Occupied
 
-main :: IO ()
-main = do
-  -- let board = buildBoard
-  -- printMatrix 7 board
-  let board = prototypeBoard
-  let x = board!3
-  print x
+makeRow y = [makeSquare x y | x <- [1..8]]
+
+getColor :: Int -> Color
+getColor x = if (x `mod` 2) == 0 then White else Black
+
+makeBoardHelper board 0 = board
+makeBoardHelper board y = makeBoardHelper ((makeRow y) : board) (y - 1)
+makeBoard = makeBoardHelper [] 8 
+
+makePieces color = [(Piece Pawn color), (Piece Rook color), (Piece Knight color), (Piece Bishop color), (Piece Queen color), (Piece King White)] 
+
+-- MUTATION FUNCTIONS
+mutateRowHelper :: Square -> Square -> Square -> Square
+mutateRowHelper tp ap new = if (tp == ap) then new else ap
+mutateRow :: Square -> Square -> [Square] -> [Square]
+mutateRow target newSquare row = map (\x -> mutateRowHelper target x newSquare) row
+
+mutateBoard :: Square -> Square -> [[Square]] -> [[Square]]
+mutateBoardHelper target row newSquare = if ((squareGetY target) == (squareGetY (row !! 0))) then (mutateRow target newSquare row) else row
+mutateBoard targetSquare newSquare board = map (\currSquare -> mutateBoardHelper targetSquare currSquare newSquare) board
+--END FUNCTIONS
+
+-- take a board and initialize it with a starting position
+placePawnsHelper :: [[Square]] -> [Square] -> Int -> Int -> Color -> [[Square]]
+placePawnsHelper board targets 8 y color = board
+placePawnsHelper board targets x y color = 
+  placePawnsHelper (mutateBoard (targets !! 0) (makeSquarePiece x y (Piece Pawn color)) board) (drop 1 targets) (x + 1) y color
+
+-- makeTargets :: Int -> Int -> (Int -> Int) -> (Int -> Int) -> [Square]
+makeTargets 8 y xDelta yDelta array = array
+makeTargets x 8 xDelta yDelta array = array
+makeTargets x y xDelta yDelta array = makeTargets (xDelta x) (yDelta y) xDelta yDelta ((makeSquare x y) : array)
+
+main = do 
+  -- let whitePieces = makePieces White
+  -- let blackPieces = makePieces Black
+
+  let board = placePawnsHelper makeBoard (makeRow 7) 0 7 Black
+  let next  = placePawnsHelper board (makeRow 2) 0 2 White
+
+  printBoard next
+  print "done"
+
+
+
+
+
+
+
+
+
 
 
 
