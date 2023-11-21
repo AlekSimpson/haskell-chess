@@ -14,6 +14,8 @@ squareGetX :: Square -> Int
 squareGetX (Square x _ _ _ _) = x
 squareGetP :: Square -> Piece
 squareGetP (Square _ _ _ piece _) = piece
+pieceGetName (Piece name _) = name
+squareGetPN (Square _ _ _ piece _) = (pieceGetName piece)
 
 instance Show Square where 
   -- show (Square x y _ _ _) = "(" ++ (show x) ++ ", " ++ (show y) ++ ")  "
@@ -61,10 +63,10 @@ printBoardHelper board i = do
 printBoard board = printBoardHelper board 7
 
 makeSquare x y = Square x y (getColor (y + x)) nullPiece Empty
-makeSquarePiece x y piece = Square x y (getColor (y + x)) piece Occupied
+makeOccupiedSquare x y piece = Square x y (getColor (y + x)) piece Occupied
 
 makeRow y = [makeSquare x y | x <- [1..8]]
-makePawnRow y color = [makeSquarePiece x y (Piece Pawn color) | x <- [1..8]]
+makePawnRow y color = [makeOccupiedSquare x y (Piece Pawn color) | x <- [1..8]]
 
 getColor :: Int -> Color
 getColor x = if (x `mod` 2) == 0 then Black else White
@@ -78,49 +80,62 @@ makeStartRow :: Color -> [Piece]
 makeStartRow c = [(Piece Rook c), (Piece Knight c), (Piece Bishop c), (Piece Queen c), (Piece King c), (Piece Bishop c), (Piece Knight c), (Piece Rook c)]
 
 -- MUTATION FUNCTIONS
-mutateRowHelper :: Square -> Square -> Square -> Square
-mutateRowHelper tp ap new = if (tp == ap) then new else ap
-mutateRow :: Square -> Square -> [Square] -> [Square]
-mutateRow target newSquare row = map (\x -> mutateRowHelper target x newSquare) row
+mutateRowHelper :: Square -> Square -> Square
+mutateRowHelper ap new = if (new == ap) then new else ap
+mutateRow :: Square -> [Square] -> [Square]
+mutateRow newSquare row = map (\x -> mutateRowHelper x newSquare) row
 
-mutateBoard :: Square -> Square -> [[Square]] -> [[Square]]
-mutateBoardHelper target row newSquare = if ((squareGetY target) == (squareGetY (row !! 0))) then (mutateRow target newSquare row) else row
-mutateBoard targetSquare newSquare board = map (\currSquare -> mutateBoardHelper targetSquare currSquare newSquare) board
+mutateBoard :: Square -> [[Square]] -> [[Square]]
+mutateBoardHelper currRow newSquare = if ((squareGetY (currRow !! 0)) == (squareGetY newSquare)) then (mutateRow newSquare currRow) else currRow
+mutateBoard newSquare board = map (\currRow -> mutateBoardHelper currRow newSquare) board
 --END FUNCTIONS
 
 -- take a board and initialize it with a starting position
-placePiecesRow :: [[Square]] -> [Square] -> Int -> Int -> [Square] -> [[Square]]
-placePiecesRow board targets 8 y pieces = board
-placePiecesRow board targets x y pieces = placePiecesRow (mutateBoard (targets !! 0) (makeSquarePiece x y (squareGetP (pieces !! 0))) board) (drop 1 targets) (x + 1) y (drop 1 pieces)
-
-placePieces board y pieces = placePieces (placePiecesRow board () 0 y pieces) (y + 1)
+placePiecesRow :: [[Square]] -> Int -> Int -> [Square] -> [[Square]]
+placePiecesRow board 8 y pieces = board
+placePiecesRow board x y pieces = placePiecesRow (mutateBoard pieces board) (x + 1) y (drop 1 pieces)
 
 -- the purpose for the anonymous functions (xDelta and yDelta) is so that this funciton can be used to iterate over multiple dimensions possibly
 -- makeTargets :: Int -> Int -> (Int -> Int) -> (Int -> Int) -> [Square]
 -- possible new name: makeRow
+-- create an array of targets to place on the board
 makeTargets 8 y xDelta yDelta array pieces = array
 makeTargets x 8 xDelta yDelta array pieces = array 
-makeTargets x y xDelta yDelta array pieces = makeTargets (xDelta x) (yDelta y) xDelta yDelta ((makeSquarePiece x y (pieces !! 0)) : array) (drop 1 pieces)
+makeTargets x y xDelta yDelta array pieces = makeTargets (xDelta x) (yDelta y) xDelta yDelta ((makeOccupiedSquare x y (pieces !! 0)) : array) (drop 1 pieces)
+
+makePiecesArrayHelper 12 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece King White) : array)
+makePiecesArrayHelper 11 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece King Black) : array)
+
+makePiecesArrayHelper 10 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Queen White) : array)
+makePiecesArrayHelper 9 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Queen Black) : array)
+
+makePiecesArrayHelper 8 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Rook White) : array)
+makePiecesArrayHelper 7 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Rook Black) : array)
+
+makePiecesArrayHelper 6 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Bishop White) : array)
+makePiecesArrayHelper 5 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Bishop Black) : array)
+
+makePiecesArrayHelper 4 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Knight White) : array)
+makePiecesArrayHelper 3 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Knight Black) : array)
+
+makePiecesArrayHelper 2 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Pawn White) : array)
+makePiecesArrayHelper 1 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Pawn Black) : array)
+makePiecesArrayHelper 0 pieceCodes array = array
+makePiecesArray pieceCodes = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) []
+
+mutateAuto targets board = map ()
+
+--method takes: targets, board
+-- iterate through board rows
+-- zip first 8 targets to currRow
+-- when done iterating return new board
 
 main = do 
+  let board = makeBoard
+  let pieces = makePiecesArray [2, 2, 2, 2, 2, 2, 2, 2]
+  let targets = makeTargets 0 2 (\x -> x + 1) (\y -> y) [] pieces
+  let a = mutateBoard 
 
-  let testArray = []
-
-  let whitePieces = makeTargets 0 0 (\x -> x + 1) (\y -> y) [] 
-
-  let whitePieces = makeTargets 0 0 (\x -> x + 1) (\y -> y) [] (makeStartRow White)
-  let blackPieces = makeTargets 0 7 (\x -> x + 1) (\y -> y) [] (makeStartRow Black)
-  let whitePawns  = makeTargets 0 2 (\x -> x + 1) (\y -> y) [] (replicate 8 (Piece Pawn White))
-  let blackPawns  = makeTargets 0 7 (\x -> x + 1) (\y -> y) [] (replicate 8 (Piece Pawn Black))
-
-  let board = placePiecesRow makeBoard (makeRow 7) 0 7 blackPawns
-  let a     = placePiecesRow board (makeRow 2) 0 2 whitePawns
-  let b     = placePiecesRow a (makeRow 1) 0 1 whitePieces
-  let c     = placePiecesRow b (makeRow 8) 0 8 blackPieces
-
-  printBoard (makeBoard)
-  putStrLn ""
-  printBoard c
   print "done"
 
 
