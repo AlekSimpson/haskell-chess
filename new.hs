@@ -7,6 +7,9 @@ data SquareState = Occupied | Empty
 
 data Piece = Piece PieceName Color
 data Square = Square Int Int Color Piece SquareState
+data Point = Point Int Int
+pointGetX (Point x _) = x
+pointGetY (Point _ y) = y
 
 squareGetY :: Square -> Int
 squareGetY (Square _ y _ _ _) = y
@@ -90,52 +93,25 @@ mutateBoardHelper currRow newSquare = if ((squareGetY (currRow !! 0)) == (square
 mutateBoard newSquare board = map (\currRow -> mutateBoardHelper currRow newSquare) board
 --END FUNCTIONS
 
--- take a board and initialize it with a starting position
-placePiecesRow :: [[Square]] -> Int -> Int -> [Square] -> [[Square]]
-placePiecesRow board 8 y pieces = board
-placePiecesRow board x y pieces = placePiecesRow (mutateBoard pieces board) (x + 1) y (drop 1 pieces)
+place :: [Square] -> [[Square]] -> [[Square]]
+place [] board = board
+place pieces board = place (drop 1 pieces) (mutateBoard (pieces !! 0) board)
 
--- the purpose for the anonymous functions (xDelta and yDelta) is so that this funciton can be used to iterate over multiple dimensions possibly
--- makeTargets :: Int -> Int -> (Int -> Int) -> (Int -> Int) -> [Square]
--- possible new name: makeRow
--- create an array of targets to place on the board
-makeTargets 8 y xDelta yDelta array pieces = array
-makeTargets x 8 xDelta yDelta array pieces = array 
-makeTargets x y xDelta yDelta array pieces = makeTargets (xDelta x) (yDelta y) xDelta yDelta ((makeOccupiedSquare x y (pieces !! 0)) : array) (drop 1 pieces)
+makeTargets :: [(Point, Piece)] -> [Square]
+makeTargets zippedPoints = map (\(point, piece) -> makeOccupiedSquare (pointGetX point) (pointGetY point) piece) zippedPoints
 
-makePiecesArrayHelper 12 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece King White) : array)
-makePiecesArrayHelper 11 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece King Black) : array)
-
-makePiecesArrayHelper 10 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Queen White) : array)
-makePiecesArrayHelper 9 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Queen Black) : array)
-
-makePiecesArrayHelper 8 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Rook White) : array)
-makePiecesArrayHelper 7 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Rook Black) : array)
-
-makePiecesArrayHelper 6 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Bishop White) : array)
-makePiecesArrayHelper 5 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Bishop Black) : array)
-
-makePiecesArrayHelper 4 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Knight White) : array)
-makePiecesArrayHelper 3 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Knight Black) : array)
-
-makePiecesArrayHelper 2 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Pawn White) : array)
-makePiecesArrayHelper 1 pieceCodes array = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) ((Piece Pawn Black) : array)
-makePiecesArrayHelper 0 pieceCodes array = array
-makePiecesArray pieceCodes = makePiecesArrayHelper (pieceCodes !! 0) (drop 1 pieceCodes) []
-
-mutateAuto targets board = map ()
-
---method takes: targets, board
--- iterate through board rows
--- zip first 8 targets to currRow
--- when done iterating return new board
+-- appendArray :: [a] -> [a] -> [a]
+-- appendArray arrOne arrTwo = map (\x -> x : arrTwo) arrOne
 
 main = do 
   let board = makeBoard
-  let pieces = makePiecesArray [2, 2, 2, 2, 2, 2, 2, 2]
-  let targets = makeTargets 0 2 (\x -> x + 1) (\y -> y) [] pieces
-  let a = mutateBoard 
+  let pieces = [(Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Pawn White), (Piece Queen White)]
+  let points = [(Point 1 2), (Point 2 2), (Point 3 2), (Point 4 2), (Point 5 2), (Point 6 2), (Point 7 2), (Point 8 2), (Point 5 5)]
 
+  let targets = makeTargets (zip points pieces)
+  let a = place targets board
+
+  printBoard a
   print "done"
 
 
