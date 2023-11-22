@@ -99,18 +99,22 @@ makeTargets zippedPoints = map (\(point, piece) -> makeOccupiedSquare (pointGetX
 placeFromTargets [] board = board
 placeFromTargets targetRows board = placeFromTargets (drop 1 targetRows) (place (targetRows !! 0) board)
 
-eval :: [[Square]] -> [[Square]]
-eval board = board
+sumRow row sum = sumRow (drop 1 row) (sum + (pieceGetValue (squareGetP (row !! 0))))
+sumBoard board sum = sumBoard (drop 1 board) (sum + (sumRow (board !! 0) 0))
+eval :: [[Square]] -> Int
+eval board = sumBoard board 0
 
+findCandidatePieces :: [[Square]] -> [Square]
+ 
 main = do 
   -- INITIALIZE BOARD
   let whitePawnRow  = [(Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1)]
-  let blackPawnRow  = [(Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1), (Piece Pawn Black 1)] 
-  let blackInnerRow = [(Piece Rook Black 5), (Piece Knight Black 3), (Piece Bishop Black 4), (Piece Queen Black 9), (Piece King Black 0), (Piece Bishop Black 4), (Piece Knight Black 3), (Piece Rook Black 5)]
+  let blackPawnRow  = [(Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1)), (Piece Pawn Black (-1))] 
+  let blackInnerRow = [(Piece Rook Black (-5)), (Piece Knight Black (-3)), (Piece Bishop Black (-4)), (Piece Queen Black (-9)), (Piece King Black 0), (Piece Bishop Black (-4)), (Piece Knight Black (-3)), (Piece Rook Black (-5))]
   let whiteInnerRow = [(Piece Rook White 5), (Piece Knight White 3), (Piece Bishop White 4), (Piece Queen White 9), (Piece King White 0), (Piece Bishop White 4), (Piece Knight White 3), (Piece Rook White 5)]
   let whitePawnPoints = [Point x 2 | x <- [1..8]]
   let blackPawnPoints = [Point x 7 | x <- [1..8]]
-  let blackInnerRowPoints = [Point x 8 | x <- [1..8]]  
+  let blackInnerRowPoints = [Point x 8 | x <- [1..8]]
   let whiteInnerRowPoints = [Point x 1 | x <- [1..8]]
 
   let wPawnTargets = makeTargets (zip whitePawnPoints blackPawnRow)
