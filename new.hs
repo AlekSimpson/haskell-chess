@@ -104,8 +104,15 @@ sumBoard board sum = sumBoard (drop 1 board) (sum + (sumRow (board !! 0) 0))
 eval :: [[Square]] -> Int
 eval board = sumBoard board 0
 
-findCandidatePieces :: [[Square]] -> [Square]
- 
+
+-- note: currently the eval only accounts for piece value, piece value also needs to be tied to the square it is on
+-- GAME LOOP FUNCTION:
+-- iterate through pieces
+-- find candidate move for each piece 
+-- take the top 2 moves 
+-- apply eval after level 3 depth
+-- take move that yields higher eval rating after depth search
+
 main = do 
   -- INITIALIZE BOARD
   let whitePawnRow  = [(Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1), (Piece Pawn White 1)]
