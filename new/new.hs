@@ -1,14 +1,14 @@
 module Main where
 
 type Point = (Int, Int)
--- type BoardState = ([Int], [Int], [Int], [Int], [Int], [Int], [Int], [Int], [Int], [Int], [Int], [Int])
 type PlayerState = ([Int], [Int], [Int], [Int], [Int], [Int])
-type BoardState = (PlayerState, PlayerState)
+type BoardState = (PlayerState, PlayerState) 
+type Move = (Point, Point) -- starting, ending
 
 showBoard :: BoardState -> Int -> IO ()
 showBoard boardState targetPieces = undefined
 
-bget :: BoardState -> Int -> Int
+bget :: BoardState -> Int -> PlayerState
 bget (a, b) select
   | select == 0 = a
   | select == 1 = b
@@ -103,6 +103,12 @@ blackBishopBiases = (reverse bishopBoardBias)
 blackQueenBiases  = (reverse queenBoardBias)
 blackKingBiases   = (reverse kingBoardBias)
 
+allBiases = (whiteBiases, blackBiases)
+  where 
+    whiteBiases = (pawnBoardBias, rookBoardBias, knightBoardBias, bishopBoardBias, queenBoardBias, kingBoardBias)
+    blackBiases = (blackPawnBiases, blackRookBiases, blackKnightBiases, blackBishopBiases, blackQueenBiases, blackKingBiases)
+
+
 pointToIndex :: Point -> Int
 pointToIndex p = (((y - 1) `mod` 9) * 8) + (x `mod` 9) 
   where 
@@ -110,6 +116,7 @@ pointToIndex p = (((y - 1) `mod` 9) * 8) + (x `mod` 9)
     x = tget p 0
 
 
+-- creates board with one piece placed on it, example return: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0] (this array would have 64 elements)
 select :: Point -> [Int]
 select square = selectBoard [] 64 square
 
@@ -123,7 +130,7 @@ selectBoard array count square
 -- select = (((y - 1) `mod` 9) * 8) + (x `mod` 9)
 -- 2d point to 1d index formula: ((y % 9) * 8) + (x % 9)
 
-
+-- same as selectBoard except this is placing a row of pieces (mostly using this for pawns)
 rowBoard array count rowNum
   | count == 0                       = array
   | count <= upper && count >= lower = rowBoard (1 : array) (count - 1) rowNum
@@ -135,7 +142,7 @@ rowBoard array count rowNum
 -- row upper bound formula: (rowNum % 9) * 8
 -- row lower bound formula: (((rowNum-1) % 9) * 8) + 1
 
-
+-- selects multiple arbitrary points on the board to place an arbitary type of piece
 multisel :: [Point] -> [Int] -> [Int]
 multisel [] result = result
 multisel points result = multisel (tail points) (or_ (select (points !! 0)) result)
@@ -162,17 +169,6 @@ getPieceValue id
   | id == 6  = 900
 
  
--- piece-square table based
-eval :: BoardState -> BoardState -> Int -> Int -> Int
-eval pieceState pieceBiases 13 output = output
-eval pieceState pieceBiases id output = eval pieceState pieceBiases (id + 1) (output + (sum (map (\x -> (tget x 0) + (tget x 1)) occupiedSquares)))
-  where
-    pieceValue = getPieceValue id
-    pieces = map (\x -> x * pieceValue) (getPieceSet id pieceState)   --- [Int]
-    pBiases = getPieceSet id pieceBiases --- [Int] 
-    occupiedSquares = filter (\x -> (tget x 0) == pieceValue) (zip pieces pBiases)
-
-
 evalSide :: PlayerState -> PlayerState -> Int -> Int -> Int
 evalSide pieceState biases 6 output  = output
 evalSide pieceState biases id output = evalSide pieceState biases (id + 1) (output + (sum (map (\x -> (tget x 0) + (tget x 1)) occupiedSquares)))
@@ -183,39 +179,47 @@ evalSide pieceState biases id output = evalSide pieceState biases (id + 1) (outp
     zipped = (zip pieces pBiases)
     occupiedSquares = filter (\x -> (tget x 0) == pieceValue) zipped
 
-evalBoard :: BoardState -> BoardState -> Int -> Int
-evalBoard boardState boardBiases = (evalSide (bget boardState 0) (bget boardBiases 0)) - (evalSide (bget boardState 1) (bget boardBiases 1))
+
+evalBoard :: BoardState -> BoardState -> Int
+evalBoard boardState boardBiases = (evalSide (bget boardState 0) (bget boardBiases 0) 1 0) - (evalSide (bget boardState 1) (bget boardBiases 1) 1 0)
+
+
+-- need a function that gets all legal moves for a piece: getLegalMoves
+getLegalMoves :: [Int] -> [Move]
+
+
+-- need a function that returns true or false depending on whether getLegalMoves returns an empty array for the king or not
+gameIsOver :: BoardState -> Int
+
+
+-- minimax function, takes board and depth
+-- get all legal moves
+-- map eval to moves to get list of evals for each move 
+minimax :: BoardState -> BoardState -> Move
 
 
 main = do 
-  let blackPawns = multisel [(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2)] makeBlank
+  -- CREATE STARTING POSITION
+  let blackPawns   = multisel [(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2)] makeBlank
   let blackRooks   = multisel [(1, 1), (8, 1)] makeBlank
   let blackKnights = multisel [(2, 1), (7, 1)] makeBlank
   let blackBishops = multisel [(3, 1), (6, 1)] makeBlank
   let blackQueen   = multisel [(4, 1)] makeBlank
   let blackKing    = multisel [(5, 1)] makeBlank
 
-  let whitePawns = multisel [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7), (8, 7)] makeBlank
+  let whitePawns   = multisel [(1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7), (8, 7)] makeBlank
   let whiteRooks   = multisel [(1, 8), (8, 8)] makeBlank
   let whiteKnights = multisel [(2, 8), (7, 8)] makeBlank
   let whiteBishops = multisel [(3, 8), (6, 8)] makeBlank
   let whiteQueen   = multisel [(4, 8)] makeBlank
   let whiteKing    = multisel [(5, 8)] makeBlank
 
-  -- let pieceBiases = (pawnBoardBias, rookBoardBias, knightBoardBias, bishopBoardBias, queenBoardBias, kingBoardBias, (reverse pawnBoardBias), (reverse rookBoardBias), (reverse knightBoardBias), (reverse bishopBoardBias), (reverse queenBoardBias), (reverse kingBoardBias)) :: BoardState
-  -- let boardState  = (whitePawns, whiteRooks, whiteKnights, whiteBishops, whiteQueen, whiteKing, blackPawns, blackRooks, blackKnights, blackBishops, blackQueen, blackKing) :: BoardState
-  -- let boardState = (whitePawns, makeBlank, makeBlank, makeBlank, makeBlank, makeBlank, blackPawns, makeBlank, makeBlank, makeBlank, makeBlank, makeBlank)
-
-  let blackBiases = (blackPawnBiases, blackRookBiases, blackKnightBiases, blackBishopBiases, blackQueenBiases, blackKingBiases) :: PlayerState
-  let whiteBiases = (pawnBoardBias, rookBoardBias, knightBoardBias, bishopBoardBias, queenBoardBias, kingBoardBias) :: PlayerState
-
   let whitePieces = (whitePawns, whiteRooks, whiteKnights, whiteBishops, whiteQueen, whiteKing) :: PlayerState
   let blackPieces = (blackPawns, blackRooks, blackKnights, blackBishops, blackQueen, blackKing) :: PlayerState
 
-  let boardState = (whitePieces, whiteBiases) :: BoardState
+  let boardState = (whitePieces, blackPieces) :: BoardState
   
-
-  --let x = eval boardState pieceBiases 1 0 
+  let x = evalBoard boardState allBiases
 
   putStrLn (show x)
   putStrLn "done"
