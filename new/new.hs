@@ -1,9 +1,11 @@
 module Main where
 
+import Data.Bool
+
 type Point = (Int, Int)
 type PlayerState = ([Int], [Int], [Int], [Int], [Int], [Int])
 type BoardState = (PlayerState, PlayerState) 
-type Move = (Point, Point) -- starting, ending
+type Move = (Point, Point) -- start, end
 
 showBoard :: BoardState -> Int -> IO ()
 showBoard boardState targetPieces = undefined
@@ -116,6 +118,80 @@ pointToIndex p = (((y - 1) `mod` 9) * 8) + (x `mod` 9)
     x = tget p 0
 
 
+indexToPoint :: Int -> Point
+indexToPoint = undefined
+
+
+kingInCheck :: Int -> Bool
+kingInCheck = undefined
+
+
+pawnOnHomeRow :: Int -> Bool
+pawnOnHomeRow = undefined
+
+
+divFloat :: Int -> Int -> Fractional
+divFloat a b = (a / b)
+  where
+    fa = fromIntegral a :: Float
+    fb = fromIntegral b :: Float
+
+
+-- input parameter is the index of the piece on the linearized board
+isBishopMove :: Int -> Int -> Bool
+isBishopMove start end = (div (y2 - y1) (x2 - x1)) == 1 || (div (y2 - y1) (x2 - x1)) == -1
+  where
+    startPoint = indexToPoint start
+    endPoint = indexToPoint end
+    y2 = tget endPoint 1
+    y1 = tget startPoint 1
+    x2 = tget endPoint 0
+    x1 = tget startPoint 0
+
+isRookMove :: Int -> Int -> Bool
+isRookMove start end = (x2 == x1) || (y2 == y1)
+  where
+    startPoint = indexToPoint start
+    endPoint = indexToPoint end
+    x2 = tget endPoint 0
+    x1 = tget startPoint 0
+    y2 = tget endPoint 1
+    y1 = tget endPoint 1
+
+-- DOES NOT CHECK IF KING IS IN CHECK, NEED TO ADD THIS
+isKingMove :: Int -> Int -> Bool
+isKingMove start end = (x2 - x1) == 1 && (y2 - y1) == 1 && (not kingInCheck)
+  where
+    startPoint = indexToPoint start
+    endPoint = indexToPoint end
+    x1 = tget startPoint 0
+    x2 = tget endPoint 0
+    y1 = tget startPoint 1
+    y2 = tget endPoint 1
+
+-- NOTE: DOES NOT ACCOUNT FOR DIAGONAL CAPTURE YET
+isPawnMove :: Int -> Int -> Bool -> Bool
+isPawnMove start end onHomeRow
+  | onHomeRow == True  = (y2 - y1) == 1 || (y2 - y1) == 2 
+  | onHomeRow == False = (y2 - y1) == 1
+  where
+    startPoint = pointToIndex start
+    endPoint = pointToIndex end
+    y2 = tget endPoint 0
+    y1 = tget startPoint 0
+
+isKnightMove :: Int -> Int -> Bool
+isKnightMove start end = ((slope == 2.0) || (slope == 0.5)) && ()
+  where
+    startPoint = indexToPoint start
+    endPoint = indexToPoint end
+    y2 = tget endPoint 1
+    x2 = tget endPoint 0 
+    y1 = tget startPoint 1
+    x1 = tget startPoint 0
+    slope = (abs (divFloat (y2 - y1) (x2 - x1)))
+
+
 -- creates board with one piece placed on it, example return: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0] (this array would have 64 elements)
 select :: Point -> [Int]
 select square = selectBoard [] 64 square
@@ -185,18 +261,18 @@ evalBoard boardState boardBiases = (evalSide (bget boardState 0) (bget boardBias
 
 
 -- need a function that gets all legal moves for a piece: getLegalMoves
-getLegalMoves :: [Int] -> [Move]
-
+getPieceLegalMoves:: Point
+getPieceLegalMoves = undefined
 
 -- need a function that returns true or false depending on whether getLegalMoves returns an empty array for the king or not
 gameIsOver :: BoardState -> Int
-
+gameIsOver = undefined
 
 -- minimax function, takes board and depth
 -- get all legal moves
 -- map eval to moves to get list of evals for each move 
 minimax :: BoardState -> BoardState -> Move
-
+minimax = undefined
 
 main = do 
   -- CREATE STARTING POSITION
