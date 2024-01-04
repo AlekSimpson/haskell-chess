@@ -6,20 +6,49 @@ type Point = (Int, Int)
 type PlayerState = ([Int], [Int], [Int], [Int], [Int], [Int])
 type BoardState = (PlayerState, PlayerState) 
 type Move = (Point, Point) -- start, end
+type MoveState = ([Move], [Move], [Move], [Move], [Move], [Move])
 
 showBoard :: BoardState -> Int -> IO ()
 showBoard boardState targetPieces = undefined
+
+
+-- merges to arrays into one (NOTE: could just be replaced with `++`)
+merge :: [a] -> [a] -> [a]
+merge xs     []     = xs
+merge []     ys     = ys
+merge (x:xs) (y:ys) = x : y : merge xs ys
+
+-- functions the same as `takeWhile` but when the predicate is not satisfied it includes the failed element and then stops
+takeWhileIncl :: (a -> Bool) -> [a] -> [a]
+takeWhileIncl _    []                = []
+takeWhileIncl pred (x : xs) | pred x = x : takeWhileIncl pred xs
+takeWhileIncl pred (x : xs)          = [x]
+
+
+mget :: MoveState -> Int -> [Move]
+mget (a, b, c, d, e, f) select
+  | select == 1 = a
+  | select == 2 = b
+  | select == 3 = c
+  | select == 4 = d
+  | select == 5 = e
+  | select == 6 = f
 
 bget :: BoardState -> Int -> PlayerState
 bget (a, b) select
   | select == 0 = a
   | select == 1 = b
 
-
 tget :: Point -> Int -> Int
-tget (a, b) bit
-  | bit == 0 = a
-  | bit == 1 = b
+tget (a, b) select
+  | select == 0 = a
+  | select == 1 = b
+
+
+relativeIncrementX :: Int -> Int -> Int
+relativeIncrementX 0 number = number - 1
+relativeIncrementX 1 number = number + 1
+relativeIncrementX _ number = number
 
  
 conjunction :: Int -> Int -> Int
@@ -42,7 +71,9 @@ and_ a b = map (\x -> conjunction (tget x 0) (tget x 1)) (zip a b)
 or_ :: [Int] -> [Int] -> [Int]
 or_ a b = map (\x -> disjunction (tget x 0) (tget x 1)) (zip a b)
 
+
 makeBlank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
 
 pawnBoardBias = [
    0,  0,   0,   0,   0,   0,  0,  0,
@@ -104,11 +135,16 @@ blackKnightBiases = (reverse knightBoardBias)
 blackBishopBiases = (reverse bishopBoardBias)
 blackQueenBiases  = (reverse queenBoardBias)
 blackKingBiases   = (reverse kingBoardBias)
-
 allBiases = (whiteBiases, blackBiases)
   where 
     whiteBiases = (pawnBoardBias, rookBoardBias, knightBoardBias, bishopBoardBias, queenBoardBias, kingBoardBias)
     blackBiases = (blackPawnBiases, blackRookBiases, blackKnightBiases, blackBishopBiases, blackQueenBiases, blackKingBiases)
+
+
+invertColor :: Int -> Int
+invertColor color
+  | color == 0 = 1
+  | color == 1 = 0
 
 
 pointToIndex :: Point -> Int
@@ -117,29 +153,132 @@ pointToIndex p = (((y - 1) `mod` 9) * 8) + (x `mod` 9)
     y = tget p 1
     x = tget p 0
 
-
 indexToPoint :: Int -> Point
-indexToPoint = undefined
-
-
-kingInCheck :: Int -> Bool
-kingInCheck = undefined
-
-
-pawnOnHomeRow :: Int -> Bool
-pawnOnHomeRow = undefined
-
-
-divFloat :: Int -> Int -> Fractional
-divFloat a b = (a / b)
+indexToPoint index = (x, y)
   where
-    fa = fromIntegral a :: Float
-    fb = fromIntegral b :: Float
+    fi = fromIntegral index :: Float
+    y = ceiling (fi / 8.0)
+    x = (index - ((y - 1) * 8))
 
+
+getPiecePositions :: BoardState -> Int -> Int -> [Point]
+getPiecePositions board color piece = filteredPoints
+  where
+    sideState = bget board color
+    pieceSet  = getPieceSet piece sideState
+    filterIndices = filter (\(bit, index) -> bit == 1) (zip pieceSet [1..64])
+    filteredPoints = map (\(bit, index) -> indexToPoint bit) filterIndices
+
+
+kingInCheck :: BoardState -> Int -> Int -> Bool
+kingInCheck board color startIndex = (length collisions) > 0
+  where
+    selectIndex = select startIndex
+    oppColor = invertColor color
+    oppSideState = bget board oppColor
+    oppSidePositions = [(getPiecePositions board oppColor x) | x <- [1..6]] :: [[Point]]
+    zipped = (zip oppSidePositions [1..6]) :: [([Point], Int)]
+    oppSideMoves = map (\(points, piece) -> collectPieceMoves board piece color points []) zipped
+    collapsedMoves = collapse oppSideMoves
+    uniqueMoves = removeDuplicates collapsedMoves 
+    collisions = filter (\(start, end) -> startIndex == (pointToIndex end)) uniqueMoves
+
+
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates [] = []
+removeDuplicates (x:xs) = x : removeDuplicates (filter (/= x) xs)
+
+
+collapse :: [[a]] -> [a]
+collapse matrix = collapseHelp matrix []
+collapseHelp [] accum = accum
+collapseHelp matrix accum = collapseHelp (drop 1 matrix) ((head matrix) ++ accum)
+
+
+collectPieceMoves :: BoardState -> Int -> Int -> [Point] -> [Move] -> [Move]
+collectPieceMoves board piece color [] accum = accum
+collectPieceMoves board piece color points accum = collectPieceMoves board piece color (drop 1 points) (moves ++ accum)
+  where
+    pointIndex = pointToIndex (head points)
+    moves = getPieceMoves board piece color pointIndex
+
+
+-- 0 => white, 1 => black
+pawnOnHomeRow :: Int -> Int -> Bool
+pawnOnHomeRow index 0 = (index >= 49 && index <= 56)
+pawnOnHomeRow index 1 = (index >= 9  && index <= 16)
+pawnOnHomeRow index _ = False
+
+
+-- checks whether a square is occupied or not
+checkSquareOccupied :: BoardState -> Point -> Bool 
+checkSquareOccupied boardState point = sumCollisions > 0
+  where
+    index       = pointToIndex point
+    selectIndex = select index
+    whiteState  = bget boardState 0
+    blackState  = bget boardState 1
+    wRooks      = getPieceSet 2 whiteState
+    wKnights    = getPieceSet 3 whiteState
+    wBishops    = getPieceSet 4 whiteState
+    wPawns      = getPieceSet 1 whiteState
+    wKing       = getPieceSet 6 whiteState
+    wQueen      = getPieceSet 5 whiteState
+    bRooks      = getPieceSet 2 blackState
+    bKnights    = getPieceSet 3 blackState
+    bBishops    = getPieceSet 4 blackState
+    bQueen      = getPieceSet 5 blackState
+    bKing       = getPieceSet 6 blackState
+    bPawns      = getPieceSet 1 blackState
+    pieceStates = [wPawns, wRooks, wKnights, wBishops, wQueen, wKing, bPawns, bRooks, bKnights, bBishops, bQueen, bKing]
+    collisionMaps = map (\pieceSet -> and_ pieceSet selectIndex) pieceStates
+    sumCollisions = sum (map (\colMap -> sum colMap) collisionMaps)
+
+
+checkSquareOccupiedWhite :: BoardState -> Point -> Bool
+checkSquareOccupiedWhite boardState point = sumCollisions > 0
+  where
+    index = pointToIndex point
+    selectIndex = select index
+    whiteState = bget boardState 0
+    wRooks      = getPieceSet 2 whiteState
+    wKnights    = getPieceSet 3 whiteState
+    wBishops    = getPieceSet 4 whiteState
+    wPawns      = getPieceSet 1 whiteState
+    wKing       = getPieceSet 6 whiteState
+    wQueen      = getPieceSet 5 whiteState
+    pieceStates = [wPawns, wRooks, wKnights, wBishops, wQueen, wKing]
+    collisionMaps = map (\pieceState -> and_ pieceState selectIndex) pieceStates 
+    sumCollisions = sum (map (\colMap -> sum colMap) collisionMaps)
+
+checkSquareOccupiedBlack :: BoardState -> Point -> Bool
+checkSquareOccupiedBlack boardState point = sumCollisions > 0
+  where
+    index = pointToIndex point
+    selectIndex = select index
+    blackState = bget boardState 1
+    bRooks      = getPieceSet 2 blackState
+    bKnights    = getPieceSet 3 blackState
+    bBishops    = getPieceSet 4 blackState
+    bQueen      = getPieceSet 5 blackState
+    bKing       = getPieceSet 6 blackState
+    bPawns      = getPieceSet 1 blackState
+    pieceStates = [bPawns, bRooks, bKnights, bBishops, bQueen, bKing]
+    collisionMaps = map (\pieceState -> and_ pieceState selectIndex) pieceStates 
+    sumCollisions = sum (map (\colMap -> sum colMap) collisionMaps)
+
+-- color: 0, 1 | piece: 1=>pawns, 2=>rooks, 3=>knights, 4=>bishops, 5=>queens, 6=>kings
+checkSquareOccupiedPiece :: BoardState -> Int -> Int -> Point -> Bool
+checkSquareOccupiedPiece boardState color piece point = (sum (and_ pieces selectIndex)) > 0
+  where
+    index = pointToIndex point
+    selectIndex = select index
+    state = bget boardState color
+    pieces = getPieceSet piece state
 
 -- input parameter is the index of the piece on the linearized board
 isBishopMove :: Int -> Int -> Bool
-isBishopMove start end = (div (y2 - y1) (x2 - x1)) == 1 || (div (y2 - y1) (x2 - x1)) == -1
+isBishopMove start end = x2 /= x1 && (slope == 1 || slope == -1)
   where
     startPoint = indexToPoint start
     endPoint = indexToPoint end
@@ -147,6 +286,29 @@ isBishopMove start end = (div (y2 - y1) (x2 - x1)) == 1 || (div (y2 - y1) (x2 - 
     y1 = tget startPoint 1
     x2 = tget endPoint 0
     x1 = tget startPoint 0
+    ydiff = fromIntegral (abs (y2 - y1)) :: Float
+    xdiff = fromIntegral (abs (x2 - x1)) :: Float
+    slope = ydiff / xdiff
+
+getBishopMoves :: BoardState -> Int -> Int -> [Move]
+getBishopMoves board color start = moveset
+  where
+    startPoint          = indexToPoint start
+    startX              = tget startPoint 0
+    startY              = tget startPoint 1
+    allTheoreticalMoves = filter (\x -> isBishopMove start x) [1..64]
+    theoryPoints        = map indexToPoint allTheoreticalMoves
+    movesSE             = filter (\(x, y) -> (x < startX && y > startY)) theoryPoints
+    movesSW             = filter (\(x, y) -> (x > startX && y > startY)) theoryPoints
+    movesNE             = filter (\(x, y) -> (x < startX && y < startY)) theoryPoints
+    movesNW             = filter (\(x, y) -> (x > startX && y < startY)) theoryPoints
+    possibleNW          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) (reverse movesNW)
+    possibleNE          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesNE
+    possibleSW          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesSW
+    possibleSE          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesSE
+    mergedMoves         = merge (merge possibleNW possibleNE) (merge possibleSW possibleSE)
+    filteredOwnColor    = filter (\point -> not (filterOutOwnColor board color point)) mergedMoves
+    moveset             = map (\point -> (startPoint, point)) filteredOwnColor
 
 isRookMove :: Int -> Int -> Bool
 isRookMove start end = (x2 == x1) || (y2 == y1)
@@ -156,11 +318,62 @@ isRookMove start end = (x2 == x1) || (y2 == y1)
     x2 = tget endPoint 0
     x1 = tget startPoint 0
     y2 = tget endPoint 1
-    y1 = tget endPoint 1
+    y1 = tget startPoint 1
 
--- DOES NOT CHECK IF KING IS IN CHECK, NEED TO ADD THIS
-isKingMove :: Int -> Int -> Bool
-isKingMove start end = (x2 - x1) == 1 && (y2 - y1) == 1 && (not kingInCheck)
+getRookMoves:: BoardState -> Int -> Int -> [Move]
+getRookMoves board color start = moveset 
+  where
+    startPoint          = indexToPoint start
+    startX              = tget startPoint 0
+    startY              = tget startPoint 1
+    allTheoreticalMoves = filter (\x -> isRookMove start x) [1..64]
+    theoryPoints        = map indexToPoint allTheoreticalMoves
+    northMoves          = filter (\(x, y) -> (x == startX && y < startY)) theoryPoints
+    southMoves          = filter (\(x, y) -> (x == startX && y > startY)) theoryPoints
+    eastMoves           = filter (\(x, y) -> (y == startY && x > startX)) theoryPoints
+    westMoves           = filter (\(x, y) -> (y == startY && x < startX)) theoryPoints
+    possibleNorthMoves  = takeWhileIncl (\point -> not (checkSquareOccupied board point)) (reverse northMoves)
+    possibleSouthMoves  = takeWhileIncl (\point -> not (checkSquareOccupied board point)) southMoves
+    possibleEastMoves   = takeWhileIncl (\point -> not (checkSquareOccupied board point)) eastMoves
+    possibleWestMoves   = takeWhileIncl (\point -> not (checkSquareOccupied board point)) (reverse westMoves)
+    mergedMoves         = merge (merge possibleSouthMoves possibleNorthMoves) (merge possibleWestMoves possibleEastMoves)
+    filteredOwnColor    = filter (\point -> not (filterOutOwnColor board color point)) mergedMoves
+    moveset             = map (\point -> (startPoint, point)) filteredOwnColor
+
+isQueenMove :: Int -> Int -> Bool
+isQueenMove start end = (isRookMove start end) || (isBishopMove start end)
+
+getQueenMoves :: BoardState -> Int -> Int -> [Move]
+getQueenMoves board color start = moveset
+  where
+    startPoint          = indexToPoint start
+    startX              = tget startPoint 0
+    startY              = tget startPoint 1
+    allTheoreticalMoves = filter (\x -> isQueenMove start x) [1..64]
+    theoryPoints        = map indexToPoint allTheoreticalMoves
+    northMoves          = filter (\(x, y) -> (x == startX && y > startY)) theoryPoints
+    southMoves          = filter (\(x, y) -> (x == startX && y < startY)) theoryPoints
+    eastMoves           = filter (\(x, y) -> (y == startY && x > startX)) theoryPoints
+    westMoves           = filter (\(x, y) -> (y == startY && x < startX)) theoryPoints 
+    movesNW             = filter (\(x, y) -> (x < startX && y > startY)) theoryPoints
+    movesNE             = filter (\(x, y) -> (x > startX && y > startY)) theoryPoints
+    movesSW             = filter (\(x, y) -> (x < startX && y < startY)) theoryPoints
+    movesSE             = filter (\(x, y) -> (x > startX && y < startY)) theoryPoints
+    possibleNorth       = takeWhileIncl (\point -> not (checkSquareOccupied board point)) northMoves
+    possibleSouth       = takeWhileIncl (\point -> not (checkSquareOccupied board point)) southMoves
+    possibleEast        = takeWhileIncl (\point -> not (checkSquareOccupied board point)) eastMoves
+    possibleWest        = takeWhileIncl (\point -> not (checkSquareOccupied board point)) westMoves
+    possibleNW          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesNW
+    possibleNE          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesNE
+    possibleSW          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesSW
+    possibleSE          = takeWhileIncl (\point -> not (checkSquareOccupied board point)) movesSE
+    mergeCardinal       = merge (merge possibleSouth possibleNorth) (merge possibleWest possibleEast)
+    mergeDiagonal       = merge (merge possibleNE possibleNW) (merge possibleSW possibleSE)
+    totalMerge          = filter (\point -> filterOutOwnColor board color point) (merge mergeDiagonal mergeCardinal)
+    moveset             = map (\point -> (startPoint, point)) totalMerge
+
+isKingMove :: BoardState -> Int -> Int -> Int -> Bool
+isKingMove board color start end = xdiff == 1 && ydiff == 1 && (not (kingInCheck board color end)) && not (checkSquareOccupied board (indexToPoint end))
   where
     startPoint = indexToPoint start
     endPoint = indexToPoint end
@@ -168,20 +381,46 @@ isKingMove start end = (x2 - x1) == 1 && (y2 - y1) == 1 && (not kingInCheck)
     x2 = tget endPoint 0
     y1 = tget startPoint 1
     y2 = tget endPoint 1
+    xdiff = abs (x2 - x1)
+    ydiff = abs (y2 - y1)
 
--- NOTE: DOES NOT ACCOUNT FOR DIAGONAL CAPTURE YET
-isPawnMove :: Int -> Int -> Bool -> Bool
-isPawnMove start end onHomeRow
-  | onHomeRow == True  = (y2 - y1) == 1 || (y2 - y1) == 2 
-  | onHomeRow == False = (y2 - y1) == 1
+getKingMoves :: BoardState -> Int -> Int -> [Move]
+getKingMoves board start color = map (\point -> (startPoint, point)) notSameColorNotKing
   where
-    startPoint = pointToIndex start
-    endPoint = pointToIndex end
-    y2 = tget endPoint 0
-    y1 = tget startPoint 0
+    startPoint = indexToPoint start
+    allTheoreticalMoves = filter (\x -> isKingMove board color start x) [1..64]
+    theoryPoints = map indexToPoint allTheoreticalMoves
+    notSameColorNotKing = filter (\point -> (filterOutOwnColor board color point) || (kingFilter board point)) theoryPoints
 
-isKnightMove :: Int -> Int -> Bool
-isKnightMove start end = ((slope == 2.0) || (slope == 0.5)) && ()
+isPawnMove :: BoardState -> Int -> Int -> Bool -> Bool
+isPawnMove board start end onHomeRow
+  | onHomeRow == True  = (ydiff == 1 || ydiff == 2) && not (checkSquareOccupied board (indexToPoint end)) && (x2 == x1)
+  | onHomeRow == False = ydiff == 1 && not (checkSquareOccupied board (indexToPoint end)) && (x2 == x1)
+  where
+    startPoint = indexToPoint start
+    endPoint = indexToPoint end
+    y2 = tget endPoint 1
+    x2 = tget endPoint 0
+    y1 = tget startPoint 1
+    x1 = tget startPoint 0
+    ydiff = abs (y2 - y1)
+
+getPawnMoves :: BoardState -> Int -> Int -> [Move]
+getPawnMoves board start color = moveset
+  where
+    startPoint = indexToPoint start
+    startX = tget startPoint 0
+    startY = tget startPoint 1
+    diagonals = [(startX + 1, relativeIncrementX color startY), (startX - 1, relativeIncrementX color startY)]
+    diagonalPoints = filter (\point -> checkOppositeColor board color point) diagonals
+    onHomeRow = pawnOnHomeRow start color
+    theoryMoves = filter (\x -> isPawnMove board start x onHomeRow) [1..64]
+    possibleMoves = takeWhile (\x -> not (checkSquareOccupied board (indexToPoint x))) theoryMoves
+    pmoves = map indexToPoint possibleMoves
+    moveset = map (\x -> (startPoint, x)) (merge pmoves diagonalPoints)
+
+isKnightMove :: BoardState -> Int -> Int -> Int -> Bool
+isKnightMove board color start end = ((slope == 2.0) || (slope == 0.5)) && (xdiff <= 2 && ydiff <= 2) && not (filterOutOwnColor board color (indexToPoint end))
   where
     startPoint = indexToPoint start
     endPoint = indexToPoint end
@@ -189,12 +428,57 @@ isKnightMove start end = ((slope == 2.0) || (slope == 0.5)) && ()
     x2 = tget endPoint 0 
     y1 = tget startPoint 1
     x1 = tget startPoint 0
-    slope = (abs (divFloat (y2 - y1) (x2 - x1)))
+    ydiff = fromIntegral (abs (y2 - y1)) :: Float
+    xdiff = fromIntegral (abs (x2 - x1)) :: Float
+    slope = abs (ydiff / xdiff)
+
+getKnightMoves :: BoardState -> Int -> Int -> [Move]
+getKnightMoves board color start = moveset
+  where
+    startPoint  = indexToPoint start
+    theoryMoves = filter (\x -> isKnightMove board color start x) [1..64] 
+    theoryPoints = map indexToPoint theoryMoves
+    moveset = map (\point -> (startPoint, point)) theoryPoints
+
+getPieceMoves :: BoardState -> Int -> Int -> Int -> [Move]
+getPieceMoves board piece color start
+  | piece == 1 = getPawnMoves board color start 
+  | piece == 2 = getRookMoves board color start
+  | piece == 3 = getKnightMoves board color start
+  | piece == 4 = getBishopMoves board color start
+  | piece == 5 = getQueenMoves board color start
+  | piece == 6 = getKingMoves board color start
+
+
+filterOutOwnColor :: BoardState -> Int -> Point -> Bool
+filterOutOwnColor board color point
+  | color == 0 = checkSquareOccupiedWhite board point
+  | color == 1 = checkSquareOccupiedBlack board point
+
+
+checkOppositeColor :: BoardState -> Int -> Point -> Bool
+checkOppositeColor board color point
+  | color == 0 = checkSquareOccupiedBlack board point
+  | color == 1 = checkSquareOccupiedWhite board point
+
+
+kingFilter :: BoardState -> Point -> Bool
+kingFilter board point = (sum (and_ whiteKing selectIndex)) > 0 || (sum (and_ blackKing selectIndex)) > 0
+  where
+    index = pointToIndex point
+    selectIndex = select index
+    whiteState = bget board 0
+    blackState = bget board 1
+    whiteKing = getPieceSet 6 whiteState
+    blackKing = getPieceSet 6 blackState
 
 
 -- creates board with one piece placed on it, example return: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0] (this array would have 64 elements)
-select :: Point -> [Int]
-select square = selectBoard [] 64 square
+select :: Int -> [Int]
+select square = selectBoard [] 64 (indexToPoint square)
+
+selectp :: Point -> [Int]
+selectp square = selectBoard [] 64 square
 
 selectBoard :: [Int] -> Int -> Point -> [Int]
 selectBoard array count square
@@ -221,30 +505,31 @@ rowBoard array count rowNum
 -- selects multiple arbitrary points on the board to place an arbitary type of piece
 multisel :: [Point] -> [Int] -> [Int]
 multisel [] result = result
-multisel points result = multisel (tail points) (or_ (select (points !! 0)) result)
+multisel points result = multisel (tail points) (or_ (selectp (points !! 0)) result)
 
 
 -- the state of each side during the game will be held in a tuple containing six arrays, one for each piece. This function will help extract the needed set from the universal set
 getPieceSet :: Int -> PlayerState -> [Int]
-getPieceSet id (pawns, rooks, knights, bishops, queen, king)
-  | id == 1 = pawns
-  | id == 2 = rooks
-  | id == 3 = knights
-  | id == 4 = bishops
-  | id == 5 = queen
-  | id == 6 = king
+getPieceSet select (pawns, rooks, knights, bishops, queen, king)
+  | select == 1 = pawns
+  | select == 2 = rooks
+  | select == 3 = knights
+  | select == 4 = bishops
+  | select == 5 = queen
+  | select == 6 = king
 
 
 getPieceValue :: Int -> Int
-getPieceValue id 
-  | id == 1  = 10
-  | id == 2  = 50
-  | id == 3  = 30
-  | id == 4  = 30
-  | id == 5  = 90
-  | id == 6  = 900
+getPieceValue select
+  | select == 1  = 10
+  | select == 2  = 50
+  | select == 3  = 30
+  | select == 4  = 30
+  | select == 5  = 90
+  | select == 6  = 900
 
  
+-- eval function
 evalSide :: PlayerState -> PlayerState -> Int -> Int -> Int
 evalSide pieceState biases 6 output  = output
 evalSide pieceState biases id output = evalSide pieceState biases (id + 1) (output + (sum (map (\x -> (tget x 0) + (tget x 1)) occupiedSquares)))
@@ -256,13 +541,14 @@ evalSide pieceState biases id output = evalSide pieceState biases (id + 1) (outp
     occupiedSquares = filter (\x -> (tget x 0) == pieceValue) zipped
 
 
+-- evaluates an arbitrary on the board and outputs either a negative or positive value, positive indicates the position is good for white, negative indicates the position is good for black
 evalBoard :: BoardState -> BoardState -> Int
 evalBoard boardState boardBiases = (evalSide (bget boardState 0) (bget boardBiases 0) 1 0) - (evalSide (bget boardState 1) (bget boardBiases 1) 1 0)
 
 
 -- need a function that gets all legal moves for a piece: getLegalMoves
-getPieceLegalMoves:: Point
-getPieceLegalMoves = undefined
+getPieceLegalMoves :: [Int] -> (Int -> Int -> Bool) -> Int -> [Move]
+getPieceLegalMoves pieceSet movementFunction index = undefined
 
 -- need a function that returns true or false depending on whether getLegalMoves returns an empty array for the king or not
 gameIsOver :: BoardState -> Int
@@ -274,9 +560,23 @@ gameIsOver = undefined
 minimax :: BoardState -> BoardState -> Move
 minimax = undefined
 
+
+--startPositionConfiguration :: ([Point], [Point])i
+--startPositionConfiguration = ([[(x, 2) | x <- [1..8]], [(1, 1), (8, 1)], [(2, 1), (7, 1)], [(3, 1), (6, 1)], [(4, 1)], [(5, 1)]], -- black pieces
+--                              [[(x, 7) | x <- [1..8]], [(1, 8), (8, 8)], [(2, 8), (7, 8)], [(3, 8), (6, 8)], [(4, 8)], [(5, 8)]]) -- white pieces
+--
+--
+---- creates a BoardState from two matrices holding sets of points describing the positions of different pieces
+--createPosition :: [[Point]] -> [[Point]] -> BoardState
+--createPosition whitePoints blackPoints = (whitePieces, blackPieces)
+--  where
+--    whitePieces = map (\plist -> multisel plist makeBlank) whitePoints
+--    blackPieces = map (\plist -> multisel plist makeBlank) blackPoints
+
+
 main = do 
   -- CREATE STARTING POSITION
-  let blackPawns   = multisel [(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2)] makeBlank
+  let blackPawns   = multisel [(1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2), (indexToPoint 43), (indexToPoint 45)] makeBlank
   let blackRooks   = multisel [(1, 1), (8, 1)] makeBlank
   let blackKnights = multisel [(2, 1), (7, 1)] makeBlank
   let blackBishops = multisel [(3, 1), (6, 1)] makeBlank
@@ -290,14 +590,22 @@ main = do
   let whiteQueen   = multisel [(4, 8)] makeBlank
   let whiteKing    = multisel [(5, 8)] makeBlank
 
-  let whitePieces = (whitePawns, whiteRooks, whiteKnights, whiteBishops, whiteQueen, whiteKing) :: PlayerState
+  let whitePieces = (makeBlank, whiteRooks, whiteKnights, whiteBishops, whiteQueen, whiteKing) :: PlayerState
   let blackPieces = (blackPawns, blackRooks, blackKnights, blackBishops, blackQueen, blackKing) :: PlayerState
 
   let boardState = (whitePieces, blackPieces) :: BoardState
-  
-  let x = evalBoard boardState allBiases
 
-  putStrLn (show x)
+  -- MOVEMENT VERIFIED:
+  -- PAWNS   [#]
+  -- ROOKS   [#]
+  -- KNIGHTS [#]
+  -- BISHOPS [ ]
+  -- QUEEN   [ ]
+  -- KING    [ ]
+
+  let moves = getPieceMoves boardState 4 0 59
+
+  putStrLn (show moves)
   putStrLn "done"
 
 
