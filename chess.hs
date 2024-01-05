@@ -74,6 +74,11 @@ or_ :: [Int] -> [Int] -> [Int]
 or_ a b = map (\x -> disjunction (tget x 0) (tget x 1)) (zip a b)
 
 
+-- according to GHCi `1/0` equals infinity
+inf :: Fractional a => a
+inf = 1/0
+
+
 makeBlank = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
@@ -459,6 +464,9 @@ getPieceMoves board piece color start
   | piece == 5 = getQueenMoves board color start
   | piece == 6 = getKingMoves board color start
 
+-- getAllLegalMoves :: BoardState -> Int -> [Move]
+-- getAllLegalMoves board color = map (\x -> getPieceMoves board x color ()) [1..6]
+
 
 filterOutOwnColor :: BoardState -> Int -> Point -> Bool
 filterOutOwnColor board color point
@@ -563,14 +571,27 @@ evalBoard boardState = unscaledEvalF / 10.0
 
 
 -- need a function that returns true or false depending on whether getLegalMoves returns an empty array for the king or not
-gameIsOver :: BoardState -> Int -> Int -> Bool
-gameIsOver board kingIndex color = (length (getKingMoves board color kingIndex)) == 0
+gameIsOver :: BoardState -> Bool
+gameIsOver board = undefined
+gameIsOverHelper :: BoardState -> Int -> Int -> Bool
+gameIsOverHelper board kingIndex color = (length (getKingMoves board color kingIndex)) == 0
 
 -- minimax function, takes board and depth
 -- get all legal moves
 -- map eval to moves to get list of evals for each move 
-minimax :: BoardState -> BoardState -> Move
-minimax = undefined
+-- THINK OF MINIMAX AS A DYNAMIC EVALUATION FUNCTION
+-- minimax will be used in tandem with possible moves in the engine function, so it is ok that this function is not returning a `Move` because it will be returning an eval with an associated move
+minimax :: BoardState -> Int -> Int -> Float
+minimax board depth color
+  | (gameIsOver board) == True = evalBoard board
+  | depth == 0 = evalBoard board
+  | color == 0 = foldl1 (max) (positionToEvals) -- color is white
+  | color == 1 = foldl1 (min) (positionToEvals) -- color is black
+  where 
+    -- oppSidePositions = [(getPiecePositions board (invertColor color) x) | x <- [1..6]] :: [[Point]]
+    resultingPositions = undefined
+    positionToEvals = (map (\b -> minimax b (depth - 1) (invertColor color)) resultingPositions)
+
 
 
 main = do 
@@ -597,10 +618,8 @@ main = do
   let boardState = (whitePieces, blackPieces) :: BoardState
 
   let eval = evalBoard boardState
-  let test = gameIsOver boardState 64 0
 
   putStrLn (show eval)
-  putStrLn (show test)
   putStrLn "done"
 
 
