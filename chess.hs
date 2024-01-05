@@ -8,6 +8,7 @@ type BoardState = (PlayerState, PlayerState)
 type Move = (Point, Point) -- start, end
 type MoveState = ([Move], [Move], [Move], [Move], [Move], [Move])
 
+
 showBoard :: BoardState -> Int -> IO ()
 showBoard boardState targetPieces = undefined
 
@@ -18,15 +19,29 @@ merge xs     []     = xs
 merge []     ys     = ys
 merge (x:xs) (y:ys) = x : y : merge xs ys
 
+
 -- functions the same as `takeWhile` but when the predicate is not satisfied it includes the failed element and then stops
 takeWhileIncl :: (a -> Bool) -> [a] -> [a]
 takeWhileIncl _    []                = []
 takeWhileIncl pred (x : xs) | pred x = x : takeWhileIncl pred xs
 takeWhileIncl pred (x : xs)          = [x]
 
+
 listToTuple6 :: [a] -> (a, a, a, a, a, a)
 listToTuple6 [b, c, d, e, f, g] = (b, c, d, e, f, g)
 
+tupleToList6 :: (a, a, a, a, a, a) -> [a]
+tupleToList6 [b, c, d, e, f, g] = (b, c, d, e, f, g)
+
+ 
+first (a, _) = a
+second (_, b) = b
+
+moveGet :: Move -> Int -> Point
+moveGet (start, end) 0 = start
+moveGet (start, end) 1 = end
+moveGet (start, end) _ = start
+ 
 mget :: MoveState -> Int -> [Move]
 mget (a, b, c, d, e, f) select
   | select == 1 = a
@@ -67,11 +82,21 @@ disjunction 1 0 = 1
 disjunction 1 1 = 1
 disjunction _ _ = -1
 
+xor :: Int -> Int -> Int
+xor 0 0 = 0
+xor 0 1 = 1
+xor 1 0 = 1
+xor 1 1 = 0
+xor _ _ = -1
 
 and_:: [Int] -> [Int] -> [Int] 
 and_ a b = map (\x -> conjunction (tget x 0) (tget x 1)) (zip a b)
+
 or_ :: [Int] -> [Int] -> [Int]
 or_ a b = map (\x -> disjunction (tget x 0) (tget x 1)) (zip a b)
+
+pickUpPiece :: [Int] -> [Int] -> [Int]
+pickUpPiece a b = map (\x -> xor (tget x 0) (tget x 1)) (zip a b)
 
 
 -- according to GHCi `1/0` equals infinity
@@ -576,6 +601,64 @@ gameIsOver board = undefined
 gameIsOverHelper :: BoardState -> Int -> Int -> Bool
 gameIsOverHelper board kingIndex color = (length (getKingMoves board color kingIndex)) == 0
 
+
+transformSet :: [Int] -> [Int] -> Int -> Int -> [Int]
+transformSet pieceSet newSet p searchPiece
+  | p == searchPiece = newSet
+  | p /= searchPiece = pieceSet
+
+moveWhitePiece :: BoardState -> Int -> Bool -> Move -> BoardState
+moveWhitePiece (white, black) piece isCapture move
+  | isCapture == True  = (newPlayerState, newBlackState)
+  | isCapture == False = (newPlayerState, black)
+  where
+    start = moveGet move 0
+    end = moveGet move 1
+    pieceSet = getPieceSet piece white
+    occList = filter (\(set, i) -> checkSquareOccupiedBlack (white, black) end) (zip (tupleToList6 black) [1..6])
+    occupied = head occList
+    capturedPiece = second occupied
+    blackPieceSet = first occupied
+    pickUp = pickUpPiece pieceSet (multisel [start])
+    remove = pickUpPiece blackPieceSet (multisel [end])
+    place = or_ pickUp (multisel [end])
+    newPiecesList = map (\(pieceSet, p) -> transformSet pieceSet place p piece) (zip (tupleToList6 white) [1..6])
+    newBlackPiecesList = map (\(pieceSet, p) -> transformSet blackPieceSet remove p capturedPiece) (zip (tupleToList6 black) [1..6])
+    newBlackState = listToTuple6 newBlackPiecesList
+    newPlayerState = listToTuple6 newPiecesList
+
+moveBlackPiece :: BoardState -> Int -> Bool -> Move -> BoardState
+moveBlackPiece (white, black) piece isCapture move
+  | isCapture == True  = (newWhiteState, newPlayerState)
+  | isCapture == False = (white, newPlayerState)
+  where
+    start = moveGet move 0
+    end = moveGet move 1
+    pieceSet = getPieceSet piece black
+    occList = filter (\(set, i) -> checkSquareOccupiedWhite (white, black) end) (zip (tupleToList6 white) [1..6])
+    occupied = head occList
+    capturedPiece = second occupied
+    whitePieceSet = first occupied
+    pickUp = pickUpPiece pieceSet (multisel [start])
+    remove = pickUpPiece whitePieceSet (multisel [end])
+    place = or_ pickUp (multisel [end])
+    newPiecesList = map (\(pieceSet, p) -> transformSet pieceSet place p piece) (zip (tupleToList6 black) [1..6])
+    newWhitePiecesList = map (\(pieceSet, p) -> transformSet whitePieceSet remove p capturedPiece) (zip (tupleToList6 white) [1..6])
+    newWhiteState = listToTuple6 newWhitePiecesList
+    newPlayerState = listToTuple6 newPiecesList
+
+movePiece board piece isCapture move isWhite
+  | isWhite == True  = moveWhitePiece board piece isCapture move
+  | isWhite == False = moveBlackPiece board piece isCapture move
+
+
+minimaxHelper :: BoardState -> Int -> Int -> [Point] -> [Move] -> [Move]
+minimaxHelper _ _ _ [] accum = accum
+minimaxHelper board piece color points accum = minimaxHelper board piece color (tail points) (resultingMoves ++ accum)
+  where
+    currPoint = head points
+    resultingMoves = (getPieceMoves board piece color (pointToIndex currPoint))
+
 -- minimax function, takes board and depth
 -- get all legal moves
 -- map eval to moves to get list of evals for each move 
@@ -588,8 +671,11 @@ minimax board depth color
   | color == 0 = foldl1 (max) (positionToEvals) -- color is white
   | color == 1 = foldl1 (min) (positionToEvals) -- color is black
   where 
-    -- oppSidePositions = [(getPiecePositions board (invertColor color) x) | x <- [1..6]] :: [[Point]]
-    resultingPositions = undefined
+    oppSidePositions = [(getPiecePositions board (invertColor color) x) | x <- [1..6]] :: [[Point]]
+    zipPosPiece = zip oppSidePositions [1..6]
+    resultingMoves = map (\(list, piece) -> minimaxHelper board piece color list []) zipPosPiece :: [[Move]]
+    isACapture = checkSquareOccupied board 
+    resultingPositions = map (\(move, piece) -> movePiece board piece (checkSquareOccupied board (moveGet move 1)) move (color == 0)) (zip resultingMoves [1..6]) :: [BoardState]
     positionToEvals = (map (\b -> minimax b (depth - 1) (invertColor color)) resultingPositions)
 
 
@@ -597,8 +683,7 @@ minimax board depth color
 main = do 
   -- CREATE STARTING POSITION
   let blackPawns   = multisel [(x, 2) | x <- [1..8]]
-  -- let blackRooks   = multisel [(1, 1), (8, 1)]
-  let blackRooks   = multisel [(indexToPoint 49), (indexToPoint 57)]
+  let blackRooks   = multisel [(1, 1), (8, 1)]
   let blackKnights = multisel [(2, 1), (7, 1)]
   let blackBishops = multisel [(3, 1), (6, 1)]
   let blackQueen   = multisel [(4, 1)]
@@ -609,8 +694,7 @@ main = do
   let whiteKnights = multisel [(2, 8), (7, 8)]
   let whiteBishops = multisel [(3, 8), (6, 8)]
   let whiteQueen   = multisel [(4, 8)]
-  -- let whiteKing    = multisel [(5, 8)]
-  let whiteKing    = multisel [(8, 8)]
+  let whiteKing    = multisel [(5, 8)]
 
   let whitePieces = (makeBlank, makeBlank, makeBlank, makeBlank, makeBlank, whiteKing) :: PlayerState
   let blackPieces = (makeBlank, blackRooks, makeBlank, makeBlank, makeBlank, blackKing) :: PlayerState
