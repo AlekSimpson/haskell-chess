@@ -28,10 +28,10 @@ takeWhileIncl pred (x : xs)          = [x]
 
 
 listToTuple6 :: [a] -> (a, a, a, a, a, a)
-listToTuple6 [b, c, d, e, f, g] = (b, c, d, e, f, g)
+listToTuple6 [a, b, c, d, e, f] = (a, b, c, d, e, f)
 
 tupleToList6 :: (a, a, a, a, a, a) -> [a]
-tupleToList6 [b, c, d, e, f, g] = (b, c, d, e, f, g)
+tupleToList6 (a, b, c, d, e, f) = [a, b, c, d, e, f]
 
  
 first (a, _) = a
@@ -489,8 +489,21 @@ getPieceMoves board piece color start
   | piece == 5 = getQueenMoves board color start
   | piece == 6 = getKingMoves board color start
 
--- getAllLegalMoves :: BoardState -> Int -> [Move]
--- getAllLegalMoves board color = map (\x -> getPieceMoves board x color ()) [1..6]
+
+getAllMovesForPieceType :: BoardState -> Int -> Int -> [Point] -> [Move]
+getAllMovesForPieceType board piece color starts = collapseMoves
+  where
+    pointsToIndices = map (pointToIndex) starts
+    moves = map (\start -> getPieceMoves board piece color start) pointsToIndices
+    collapseMoves = foldl1 (++) moves
+
+
+getAllLegalMoves :: BoardState -> Int -> [Move]
+getAllLegalMoves board color = result
+  where
+    positions = map (\piece -> getPiecePositions board color piece) [1..6]
+    rawResult = map (\(points, piece) -> getAllMovesForPieceType board piece color points) (zip positions [1..6])
+    result = foldl1 (++) rawResult
 
 
 filterOutOwnColor :: BoardState -> Int -> Point -> Bool
@@ -555,13 +568,13 @@ multiselHelper points result = multiselHelper (tail points) (or_ (selectp (point
 
 -- the state of each side during the game will be held in a tuple containing six arrays, one for each piece. This function will help extract the needed set from the universal set
 getPieceSet :: Int -> PlayerState -> [Int]
-getPieceSet select (pawns, rooks, knights, bishops, queen, king)
-  | select == 1 = pawns
-  | select == 2 = rooks
-  | select == 3 = knights
-  | select == 4 = bishops
-  | select == 5 = queen
-  | select == 6 = king
+getPieceSet 1 (pawns, rooks, knights, bishops, queen, king) = pawns 
+getPieceSet 2 (pawns, rooks, knights, bishops, queen, king) = rooks
+getPieceSet 3 (pawns, rooks, knights, bishops, queen, king) = knights
+getPieceSet 4 (pawns, rooks, knights, bishops, queen, king) = bishops
+getPieceSet 5 (pawns, rooks, knights, bishops, queen, king) = queen
+getPieceSet 6 (pawns, rooks, knights, bishops, queen, king) = king
+getPieceSet _ (pawns, rooks, knights, bishops, queen, king) = pawns
 
 
 getPieceValue :: Int -> Int
@@ -597,7 +610,15 @@ evalBoard boardState = unscaledEvalF / 10.0
 
 -- need a function that returns true or false depending on whether getLegalMoves returns an empty array for the king or not
 gameIsOver :: BoardState -> Bool
-gameIsOver board = undefined
+gameIsOver (white, black) = blackState || whiteState
+  where
+    whiteKing = getPieceSet 6 white
+    whiteKPos = second (head (filter (\(bit, index) -> bit == 1) (zip whiteKing [1..64])))
+    blackKing = getPieceSet 6 black
+    blackKPos = second (head (filter (\(bit, index) -> bit == 1) (zip blackKing [1..64])))
+    blackState = gameIsOverHelper (white, black) blackKPos 1
+    whiteState = gameIsOverHelper (white, black) whiteKPos 0
+    
 gameIsOverHelper :: BoardState -> Int -> Int -> Bool
 gameIsOverHelper board kingIndex color = (length (getKingMoves board color kingIndex)) == 0
 
@@ -647,9 +668,15 @@ moveBlackPiece (white, black) piece isCapture move
     newWhiteState = listToTuple6 newWhitePiecesList
     newPlayerState = listToTuple6 newPiecesList
 
+movePiece :: BoardState -> Int -> Bool -> Move -> Bool -> BoardState
 movePiece board piece isCapture move isWhite
   | isWhite == True  = moveWhitePiece board piece isCapture move
   | isWhite == False = moveBlackPiece board piece isCapture move
+
+makeMoves :: BoardState -> Int -> [Move] -> Bool -> [BoardState]
+makeMoves board piece moves isWhite = map (\move -> movePiece board piece (checkSquareOccupied board (moveGet move 1)) move isWhite) moves
+  where
+    isCapture = checkSquareOccupied board 
 
 
 minimaxHelper :: BoardState -> Int -> Int -> [Point] -> [Move] -> [Move]
@@ -659,14 +686,10 @@ minimaxHelper board piece color points accum = minimaxHelper board piece color (
     currPoint = head points
     resultingMoves = (getPieceMoves board piece color (pointToIndex currPoint))
 
--- minimax function, takes board and depth
--- get all legal moves
--- map eval to moves to get list of evals for each move 
--- THINK OF MINIMAX AS A DYNAMIC EVALUATION FUNCTION
--- minimax will be used in tandem with possible moves in the engine function, so it is ok that this function is not returning a `Move` because it will be returning an eval with an associated move
+-- minimax function
 minimax :: BoardState -> Int -> Int -> Float
 minimax board depth color
-  | (gameIsOver board) == True = evalBoard board
+  -- | (gameIsOver board) == True = evalBoard board
   | depth == 0 = evalBoard board
   | color == 0 = foldl1 (max) (positionToEvals) -- color is white
   | color == 1 = foldl1 (min) (positionToEvals) -- color is black
@@ -674,38 +697,84 @@ minimax board depth color
     oppSidePositions = [(getPiecePositions board (invertColor color) x) | x <- [1..6]] :: [[Point]]
     zipPosPiece = zip oppSidePositions [1..6]
     resultingMoves = map (\(list, piece) -> minimaxHelper board piece color list []) zipPosPiece :: [[Move]]
-    isACapture = checkSquareOccupied board 
-    resultingPositions = map (\(move, piece) -> movePiece board piece (checkSquareOccupied board (moveGet move 1)) move (color == 0)) (zip resultingMoves [1..6]) :: [BoardState]
-    positionToEvals = (map (\b -> minimax b (depth - 1) (invertColor color)) resultingPositions)
+    resultingPositions = map (\(moveList, piece) -> makeMoves board piece moveList (color == 0)) (zip resultingMoves [1..6])
+    collapseToOneD = foldl1 (++) resultingPositions :: [BoardState]
+    positionToEvals = (map (\b -> minimax b (depth - 1) (invertColor color)) collapseToOneD)
 
+
+defaultBest = (((0,0), (0,0)), 0.0)
+
+engineGetPieceToMove :: BoardState -> Int -> Point -> Int
+engineGetPieceToMove board color start = foundMatch -- pieceToMove
+  where
+    colorState = bget board color
+    colorStateList = tupleToList6 colorState
+    matchResults = map (\bitboard -> (sum (and_ bitboard (selectp start)))) colorStateList
+    zipMatchResults = zip matchResults [1..6]
+    foundMatchTuple = filter (\(bit, piece) -> bit == 1) zipMatchResults 
+    foundMatch = second (head foundMatchTuple)
+
+
+engineMax :: (Move, Float) -> (Move, Float) -> (Move, Float)
+engineMax tA tB
+  | (max evalA evalB) == evalB = tB
+  | (max evalA evalB) == evalA = tA
+  where
+    evalA = second tA
+    evalB = second tB
+
+
+engine :: BoardState -> Int -> Int -> [Move] -> [Move]
+engine board 0 color moves = reverse moves 
+engine board maxMoves_ color moves = engine newBoard (maxMoves_ - 1) (invertColor color) (bestMove : moves)
+  where
+    legalMoves = getAllLegalMoves board color :: [Move]
+    newBoards = map (\move -> (movePiece board (engineGetPieceToMove board color (moveGet move 0)) (checkSquareOccupied board (moveGet move 1)) move (color == 0))) legalMoves
+    evalMoves = map (\b -> minimax b 2 (invertColor color)) newBoards
+    zipEvalMoves = zip legalMoves evalMoves :: [(Move, Float)]
+    bestMoveEval = foldl (\ta tb -> engineMax ta tb) (defaultBest) zipEvalMoves :: (Move, Float)
+    bestMove = first bestMoveEval :: Move
+    pieceToMove = engineGetPieceToMove board color (first bestMove)
+    isCapture = checkSquareOccupied board (second bestMove)
+    newBoard = movePiece board pieceToMove isCapture bestMove (color == 0) 
 
 
 main = do 
   -- CREATE STARTING POSITION
-  let blackPawns   = multisel [(x, 2) | x <- [1..8]]
-  let blackRooks   = multisel [(1, 1), (8, 1)]
-  let blackKnights = multisel [(2, 1), (7, 1)]
-  let blackBishops = multisel [(3, 1), (6, 1)]
-  let blackQueen   = multisel [(4, 1)]
-  let blackKing    = multisel [(5, 1)]
+  -- let blackPawns   = multisel [(x, 2) | x <- [1..8]]
+  let blackPawns = multisel [(3, 5)]
+  -- let blackRooks   = multisel [(1, 1), (8, 1)]
+  -- let blackKnights = multisel [(2, 1), (7, 1)]
+  -- let blackBishops = multisel [(3, 1), (6, 1)]
+  -- let blackQueen   = multisel [(4, 1)]
+  -- let blackKing    = multisel [(5, 1)]
+  let blackKing = multisel [(7, 2)]
 
-  let whitePawns   = multisel [(x, 7) | x <- [1..8]]
-  let whiteRooks   = multisel [(1, 8), (8, 8)]
-  let whiteKnights = multisel [(2, 8), (7, 8)]
-  let whiteBishops = multisel [(3, 8), (6, 8)]
-  let whiteQueen   = multisel [(4, 8)]
-  let whiteKing    = multisel [(5, 8)]
+  -- let whitePawns   = multisel [(x, 7) | x <- [1..8]]
+  -- let whiteRooks   = multisel [(1, 8), (8, 8)]
+  let whiteRooks = multisel [(8, 1)]
+  -- let whiteKnights = multisel [(2, 8), (7, 8)]
+  -- let whiteBishops = multisel [(3, 8), (6, 8)]
+  -- let whiteQueen   = multisel [(4, 8)]
+  -- let whiteKing    = multisel [(5, 8)]
+  let whiteKing = multisel [(3, 6)]
 
-  let whitePieces = (makeBlank, makeBlank, makeBlank, makeBlank, makeBlank, whiteKing) :: PlayerState
-  let blackPieces = (makeBlank, blackRooks, makeBlank, makeBlank, makeBlank, blackKing) :: PlayerState
+  let whitePieces = (makeBlank, whiteRooks, makeBlank, makeBlank, makeBlank, whiteKing) :: PlayerState
+  let blackPieces = (blackPawns, makeBlank, makeBlank, makeBlank, makeBlank, blackKing) :: PlayerState
 
   let boardState = (whitePieces, blackPieces) :: BoardState
 
-  let eval = evalBoard boardState
+  let game = engine boardState 5 0 []
+  let convert = map (\(startp, endp) -> (pointToIndex startp, pointToIndex endp)) game
 
-  putStrLn (show eval)
+  putStrLn (show convert)
   putStrLn "done"
 
+
+
+-- stats:
+--    ~20 seconds for 5 moves
+--    ~32 seconds for 6 moves
 
 
 
